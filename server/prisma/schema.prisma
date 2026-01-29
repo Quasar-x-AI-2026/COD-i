@@ -1,0 +1,151 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id            Int      @id @default(autoincrement())
+  name          String
+  rollNumber    String?  @unique
+  email         String   @unique
+  hashPassword  String
+  branch        String?
+  semester      Int?
+  createdAt     DateTime @default(now())
+
+  roles          UserRole[]
+  taughtSubjects SubjectTeacher[]
+  enrollments    Enrollment[]
+  classSessions  ClassSession[] @relation("TeacherSessions")
+  attendance     Attendance[]
+  faceEmbedding  FaceEmbedding?
+}
+
+model Role {
+  id    Int    @id @default(autoincrement())
+  name  String @unique
+
+  users UserRole[]
+}
+
+model UserRole {
+  userId Int
+  roleId Int
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+model Subject {
+  id          Int    @id @default(autoincrement())
+  subjectCode String @unique
+  name        String
+  semester    Int?
+  branch      String
+
+  teachers     SubjectTeacher[]
+  enrollments  Enrollment[]
+  sessions     ClassSession[]
+  timetables   Timetable[]
+}
+
+model SubjectTeacher {
+  subjectId Int
+  teacherId Int
+
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacher User    @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@id([subjectId, teacherId])
+}
+
+model Enrollment {
+  studentId Int
+  subjectId Int
+
+  student User    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@id([studentId, subjectId])
+}
+
+model ClassSession {
+  id          Int      @id @default(autoincrement())
+  subjectId   Int
+  teacherId   Int
+  sessionDate DateTime
+  startTime   DateTime
+  endTime     DateTime
+  room        String?
+
+
+  subject    Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacher    User    @relation("TeacherSessions", fields: [teacherId], references: [id], onDelete: Cascade)
+  attendance Attendance[]
+}
+
+model Attendance {
+  id              Int      @id @default(autoincrement())
+  sessionId       Int
+  studentId       Int
+  status          AttendanceStatus
+  confidenceScore Float?
+  capturedAt      DateTime @default(now())
+
+  session ClassSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student User         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, studentId])
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+}
+
+model FaceEmbedding {
+  userId Int @id
+
+  frontImage String
+  leftImage  String
+  rightImage String
+
+  qdrantPointId String? @unique
+  modelVersion  String
+
+  qualityScore Int?
+  consistent   Boolean?
+
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+}
+
+model Timetable {
+  id        Int @id @default(autoincrement())
+  branch    String?
+  semester  Int?
+  subjectId Int
+  dayOfWeek DayOfWeek?
+  startTime String
+  endTime   String
+  room      String?      
+
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@index([branch, semester, dayOfWeek])
+}

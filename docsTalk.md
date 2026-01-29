@@ -11,3 +11,4 @@ Kaustuk:
   Purpose: To render the image byes.
 Abhijit
 added folder setup and server setup 
+added db setup and defined schemas
