@@ -5,3 +5,6 @@ Instruction:->
 ->Featured You Are Working and endpoint if any
 ->Impact
 ->Where to consume
+
+Abhijit
+added folder setup and server setup 
