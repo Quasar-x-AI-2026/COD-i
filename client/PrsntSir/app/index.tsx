@@ -34,9 +34,9 @@ const OnboardingScreen = () => {
   const slideAnim = useRef(new Animated.Value(20)).current;
 
   const [fontsLoaded] = useFonts({
-    openSansBold: require("../assets/fonts/Raleway-VariableFont_wght.ttf"),
-    openSansSemiBold: require("../assets/fonts/Raleway-VariableFont_wght.ttf"),
-    openSansRegular: require("../assets/fonts/Raleway-VariableFont_wght.ttf"),
+    openSansBold: require("../assets/fonts/Mulish-VariableFont_wght.ttf"),
+    openSansSemiBold: require("../assets/fonts/Mulish-VariableFont_wght.ttf"),
+    openSansRegular: require("../assets/fonts/Mulish-VariableFont_wght.ttf"),
   });
 
   const slides = [
@@ -358,7 +358,7 @@ const styles = StyleSheet.create({
   },
   description: {
     fontFamily: "openSansRegular",
-    fontSize: 16,
+    fontSize: 20,
     lineHeight: 24,
     color: "#1A1A1A",
     marginBottom: 16,

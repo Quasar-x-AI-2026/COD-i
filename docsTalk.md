@@ -19,13 +19,15 @@ Vedant-
 Added more structure to the face input pipeline
 added face rec model + alignment infra
 
-
 Harsh-
 Adding Onboarding Page
 Makign the Expo App Smooth
 
 kaustuk:
- added embedding_model file
+added embedding_model file
 
- Vedant-
- config bug fix and model file added
+Vedant-
+config bug fix and model file added
+
+HARSH-
+added and updated stuff

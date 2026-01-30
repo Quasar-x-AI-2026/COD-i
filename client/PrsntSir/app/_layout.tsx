@@ -6,6 +6,8 @@ export default function RootLayout() {
       screenOptions={{
         headerShown: false,
       }}
-    ></Stack>
+    >
+      <Stack.Screen name="index"></Stack.Screen>
+    </Stack>
   );
 }
