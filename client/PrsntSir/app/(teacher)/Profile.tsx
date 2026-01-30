@@ -189,12 +189,9 @@ const UserDetailsPage = ({ navigation }) => {
               <Text style={styles.userEmail}>{userData.email}</Text>
             </View>
           </View>
-
-          {/* User Details Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Personal Information</Text>
 
-            {/* Name */}
             <View style={styles.detailCard}>
               <View style={styles.detailIconBox}>
                 <Ionicons

@@ -165,7 +165,6 @@ const UserPage = () => {
       console.log(`  - photo_3: ${attendanceImages[2]?.substring(0, 50)}...`);
       console.log("-----------------------------------------");
 
-      // Make POST request with FormData
       const response = await fetch(
         "https://api.example.com/attendance/submit",
         {

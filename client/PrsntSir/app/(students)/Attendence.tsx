@@ -21,7 +21,6 @@ import {
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
-// --- CONFIGURATION ---
 const COLORS = {
   primary: "#C4E45F",
   primaryLight: "#F0F8E8",
@@ -337,7 +336,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
-  // HEADER STYLES
   headerContainer: {
     paddingHorizontal: 20,
     paddingVertical: 16,
@@ -375,13 +373,11 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
 
-  // SCROLL CONTENT
   scrollContent: {
     paddingHorizontal: 20,
     paddingBottom: 40,
   },
 
-  // OVERALL CARD
   overallCard: {
     backgroundColor: COLORS.primaryLight,
     borderRadius: 20,
@@ -494,8 +490,6 @@ const styles = StyleSheet.create({
     height: 30,
     backgroundColor: COLORS.border,
   },
-
-  // SECTION TITLE
   sectionTitle: {
     fontSize: 18,
     fontWeight: "700",
@@ -504,7 +498,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
 
-  // SUBJECT CARDS
   card: {
     backgroundColor: COLORS.card,
     borderRadius: 18,

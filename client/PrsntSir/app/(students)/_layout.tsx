@@ -1,6 +1,5 @@
 import MyTabBar from "@/components/MyTabBar";
 import { Tabs } from "expo-router";
-
 export default function Layout() {
   return (
     <Tabs
