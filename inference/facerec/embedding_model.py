@@ -3,7 +3,7 @@ import onnxruntime as ort
 from facerec.config import MODEL_PATH_ARCFACE
 
 class ArcFaceONNXEmbedder:
-    def _init_(self, model_path: str = MODEL_PATH_ARCFACE, device: str = "cpu"):
+    def __init__(self, model_path: str = MODEL_PATH_ARCFACE, device: str = "cpu"):
         
         providers = (
             ["CUDAExecutionProvider", "CPUExecutionProvider"]
