@@ -7,11 +7,9 @@ Instruction:->
 ->Where to consume
 
 Kaustuk:
- Done frame_renderer file.
-  Purpose: To render the image byes.
+Done frame_renderer file.
+Purpose: To render the image byes.
+
 Abhijit
 added folder setup and server setup 
-
-Vedant 
-added a config file and facerec model + infra
-    Purpose: work to identify align and crop face pipeline started.
+added db setup and defined schemas
