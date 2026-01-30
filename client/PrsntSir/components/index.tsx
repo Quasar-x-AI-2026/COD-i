@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFonts } from "expo-font";
+import { router } from "expo-router";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -34,9 +35,9 @@ const OnboardingScreen = () => {
   const slideAnim = useRef(new Animated.Value(20)).current;
 
   const [fontsLoaded] = useFonts({
-    openSansBold: require("../assets/fonts/Raleway-VariableFont_wght.ttf"),
-    openSansSemiBold: require("../assets/fonts/Raleway-VariableFont_wght.ttf"),
-    openSansRegular: require("../assets/fonts/Raleway-VariableFont_wght.ttf"),
+    openSansBold: require("../assets/fonts/OpenSans-VariableFont_wdth,wght.ttf"),
+    openSansSemiBold: require("../assets/fonts/OpenSans-VariableFont_wdth,wght.ttf"),
+    openSansRegular: require("../assets/fonts/OpenSans-VariableFont_wdth,wght.ttf"),
   });
 
   const slides = [
@@ -120,10 +121,10 @@ const OnboardingScreen = () => {
   const handleGetStarted = async () => {
     try {
       await AsyncStorage.setItem("onboardingCompleted", "true");
-      // router.replace("/(tabs)/Index");
+      router.replace("/(tabs)/Index");
     } catch (error) {
       console.error("Error saving onboarding status:", error);
-      // router.replace("/UserRegistration/Login");
+      router.replace("/UserRegistration/Login");
     }
   };
 
