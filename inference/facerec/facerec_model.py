@@ -89,7 +89,6 @@ class FaceExtractor:
             for i, (x, y) in enumerate(lm):
                 cv2.circle(img_with_lm, (int(x), int(y)), 3, (0, 255, 0), -1)
             
-            from pathlib import Path
             source_name = Path(source).stem if isinstance(source, (str, Path)) else f"face_{np.random.randint(1e9)}"
             fname_lm = f"landmarks_{source_name}.jpg"
             cv2.imwrite(str(self.debug_dir / fname_lm), cv2.cvtColor(img_with_lm, cv2.COLOR_RGB2BGR))
@@ -104,7 +103,6 @@ class FaceExtractor:
             face_vis_bgr = cv2.cvtColor(face_vis, cv2.COLOR_RGB2BGR)
             
             # Generate filename from source path
-            from pathlib import Path
             source_name = Path(source).stem if isinstance(source, (str, Path)) else f"face_{np.random.randint(1e9)}"
             fname = f"aligned_{source_name}.jpg"
             
