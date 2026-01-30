@@ -24,3 +24,6 @@ Makign the Expo App Smooth
 
 kaustuk:
  added embedding_model file
+
+ Vedant-
+ config bug fix and model file added
