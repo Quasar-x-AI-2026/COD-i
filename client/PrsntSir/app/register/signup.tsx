@@ -212,13 +212,16 @@ const signup = () => {
 
       console.log("=== SENDING FORMDATA ===");
 
-      const response = await fetch("http://10.168.185.130:3000/auth/register", {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
+      const response = await fetch(
+        "http://192.168.9.130:3000/student/register",
+        {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+          },
+          body: submitData,
         },
-        body: submitData,
-      });
+      );
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -251,7 +254,7 @@ const signup = () => {
                 rightFace: false,
                 leftFace: false,
               });
-              router.push("/UserRegistration/Login");
+              router.push("/register/Login");
             },
           },
         ],
@@ -286,7 +289,6 @@ const signup = () => {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Header */}
             <View style={styles.headerContainer}>
               <View style={styles.iconCircle}>
                 <View style={styles.iconBackground}>
@@ -302,8 +304,6 @@ const signup = () => {
                 Register to start attendance tracking
               </Text>
             </View>
-
-            {/* Basic Info Card */}
             <View style={styles.formCard}>
               <Text style={styles.sectionTitle}>Personal Information</Text>
 
@@ -349,8 +349,6 @@ const signup = () => {
                 error={errors.password}
               />
             </View>
-
-            {/* Branch & Semester Card */}
             <View style={styles.formCard}>
               <Text style={styles.sectionTitle}>Academic Details</Text>
 
@@ -475,7 +473,6 @@ const signup = () => {
               )}
             </View>
 
-            {/* Submit Button */}
             <TouchableOpacity
               style={[styles.submitButton, loading && { opacity: 0.7 }]}
               onPress={handleSubmit}
@@ -496,9 +493,7 @@ const signup = () => {
             </TouchableOpacity>
             <View style={styles.footerCard}>
               <Text style={styles.footerText}>Already have an account?</Text>
-              <TouchableOpacity
-                onPress={() => router.push("/UserRegistration/Login")}
-              >
+              <TouchableOpacity onPress={() => router.push("/register/Login")}>
                 <Text style={styles.footerLink}>Sign in here</Text>
               </TouchableOpacity>
             </View>

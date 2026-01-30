@@ -49,3 +49,8 @@ solved Bugs on ImagePicker
 
 Harsh-
 improve the ui
+
+Harsh
+added login
+Implemented signup
+Working well on expo
