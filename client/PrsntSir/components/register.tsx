@@ -20,7 +20,7 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 const COLORS = {
   primary: "#C4E45F",
   primaryLight: "#F0F8E8",
-  background: "#fafafaa8",
+  background: "#FFFFFF",
   card: "#FFFFFF",
   text: "#000000",
   textSecondary: "#666666",
@@ -100,7 +100,7 @@ const CustomInput = ({
   );
 };
 
-const signup = () => {
+const Register = () => {
   const [formData, setFormData] = useState({
     name: "",
     rollNumber: "",
@@ -509,7 +509,7 @@ const signup = () => {
   );
 };
 
-export default signup;
+export default Register;
 
 const styles = StyleSheet.create({
   safeArea: {

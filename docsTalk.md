@@ -37,3 +37,15 @@ added tensor aggregator and face consistency check
 
 Vedant-
 added final Orchestrator and registration-time embedding generatror
+
+Vedant-
+finalized Registration-time inference pipeline with api and server
+
+Harsh-
+made Signup page
+
+Harsh-
+solved Bugs on ImagePicker
+
+Harsh-
+improve the ui
