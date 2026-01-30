@@ -31,3 +31,6 @@ config bug fix and model file added
 
 HARSH-
 added and updated stuff
+
+Vedant-
+added tensor aggregator and face consistency check
