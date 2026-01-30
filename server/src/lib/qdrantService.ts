@@ -34,58 +34,21 @@ export async function saveToQdrant(
 }
 
 
-export async function fetchEmbeddingsByUserIds(userIds: number[]) {
-    const result: {
-        student_id: string;
-        name: string;
-        roll_number: string;
-        embedding: number[];
-    }[] = [];
 
-    let offset: string | undefined;
 
-    do {
-        const res = await qdrant.scroll(COLLECTION, {
-            with_vector: true,
-            with_payload: true,
-            limit: 100,
-            offset,
-            filter: {
-                must: [
-                    {
-                        key: "userId",
-                        match: { any: userIds }
-                    }
-                ]
-            }
-        });
+const COLLECTION_NAME = "face_embeddings";
 
-        for (const p of res.points) {
-            const payload = p.payload as any;
+export async function getVectorByPointId(pointId: string) {
+  const result = await qdrant.retrieve(COLLECTION_NAME, {
+    ids: [pointId],
+    with_vector: true,
+    with_payload: false,
+  });
 
-            if (
-                typeof payload?.userId !== "number" ||
-                typeof payload?.name !== "string" ||
-                typeof payload?.rollNumber !== "string" ||
-                !Array.isArray(p.vector)
-            ) {
-                continue; 
-            }
+  if (!result || result.length === 0) {
+    throw new Error(`Vector not found for pointId ${pointId}`);
+  }
 
-            result.push({
-                student_id: String(payload.userId),
-                name: payload.name,
-                roll_number: payload.rollNumber,
-                embedding: p.vector as number[]
-            });
-        }
-
-        offset =
-            typeof res.next_page_offset === "string"
-                ? res.next_page_offset
-                : undefined;
-
-    } while (offset);
-
-    return result;
+  return result[0].vector;
 }
+

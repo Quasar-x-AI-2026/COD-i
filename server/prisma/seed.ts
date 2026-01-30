@@ -340,171 +340,314 @@ export const prisma = new PrismaClient({ adapter })
 
 /* ------------------------ helpers ------------------------ */
 
-const DAY_MAP: Record<DayOfWeek, number> = {
-  MONDAY: 1,
-  TUESDAY: 2,
-  WEDNESDAY: 3,
-  THURSDAY: 4,
-  FRIDAY: 5,
-  SATURDAY: 6
-};
+// const DAY_MAP: Record<DayOfWeek, number> = {
+//   MONDAY: 1,
+//   TUESDAY: 2,
+//   WEDNESDAY: 3,
+//   THURSDAY: 4,
+//   FRIDAY: 5,
+//   SATURDAY: 6
+// };
 
-function nextDateForDay(day: DayOfWeek) {
-  const today = new Date();
-  const target = DAY_MAP[day];
-  const diff = (target + 7 - today.getDay()) % 7 || 7;
+// function nextDateForDay(day: DayOfWeek) {
+//   const today = new Date();
+//   const target = DAY_MAP[day];
+//   const diff = (target + 7 - today.getDay()) % 7 || 7;
 
-  today.setDate(today.getDate() + diff);
-  today.setHours(0, 0, 0, 0);
-  return today;
-}
+//   today.setDate(today.getDate() + diff);
+//   today.setHours(0, 0, 0, 0);
+//   return today;
+// }
 
-function timeOnDate(base: Date, time: string) {
-  const [h, m] = time.split(":").map(Number);
-  const d = new Date(base);
-  d.setHours(h, m, 0, 0);
-  return d;
-}
+// function timeOnDate(base: Date, time: string) {
+//   const [h, m] = time.split(":").map(Number);
+//   const d = new Date(base);
+//   d.setHours(h, m, 0, 0);
+//   return d;
+// }
 
-/* ------------------------ seed ------------------------ */
+// /* ------------------------ seed ------------------------ */
 
-async function seed() {
-  console.log("🧹 Cleaning old data...");
+// async function seed() {
+//   console.log("🧹 Cleaning old data...");
 
+//   await prisma.attendance.deleteMany();
+//   await prisma.classSession.deleteMany();
+//   await prisma.enrollment.deleteMany();
+//   await prisma.subjectTeacher.deleteMany();
+//   await prisma.timetable.deleteMany();
+//   await prisma.subject.deleteMany();
+//   await prisma.userRole.deleteMany();
+//   await prisma.role.deleteMany();
+//   await prisma.user.deleteMany();
+
+//   console.log("✅ Old data removed");
+
+//   /* ---------------- Roles ---------------- */
+
+//   const studentRole = await prisma.role.create({ data: { name: "student" } });
+//   const teacherRole = await prisma.role.create({ data: { name: "teacher" } });
+
+//   /* ---------------- Users ---------------- */
+
+//   const teacher = await prisma.user.create({
+//     data: {
+//       name: "Dr. Sharma",
+//       email: "sharma@college.edu",
+//       hashPassword: "hashed",
+//       branch: "CSE",
+//       semester: 3,
+//       roles: {
+//         create: { roleId: teacherRole.id }
+//       }
+//     }
+//   });
+
+//   const student = await prisma.user.create({
+//     data: {
+//       name: "Abhijit",
+//       email: "abhijit@gmail.com",
+//       hashPassword: "hashed",
+//       branch: "CSE",
+//       semester: 3,
+//       roles: {
+//         create: { roleId: studentRole.id }
+//       }
+//     }
+//   });
+
+//   /* ---------------- Subjects ---------------- */
+
+//   const dsa = await prisma.subject.create({
+//     data: {
+//       subjectCode: "CSE201",
+//       name: "Data Structures",
+//       branch: "CSE",
+//       semester: 3
+//     }
+//   });
+
+//   /* ---------------- Subject ↔ Teacher ---------------- */
+
+//   await prisma.subjectTeacher.create({
+//     data: {
+//       subjectId: dsa.id,
+//       teacherId: teacher.id
+//     }
+//   });
+
+//   /* ---------------- Enrollment ---------------- */
+
+//   await prisma.enrollment.create({
+//     data: {
+//       studentId: student.id,
+//       subjectId: dsa.id
+//     }
+//   });
+
+//   /* ---------------- Timetable ---------------- */
+
+//   const timetableEntries = [
+//     { dayOfWeek: DayOfWeek.MONDAY, start: "10:00", end: "11:00" },
+//     { dayOfWeek: DayOfWeek.WEDNESDAY, start: "10:00", end: "11:00" },
+//     { dayOfWeek: DayOfWeek.FRIDAY, start: "10:00", end: "11:00" }
+//   ];
+
+//   for (const tt of timetableEntries) {
+//     await prisma.timetable.create({
+//       data: {
+//         branch: "CSE",
+//         semester: 3,
+//         subjectId: dsa.id,
+//         dayOfWeek: tt.dayOfWeek,
+//         startTime: tt.start,
+//         endTime: tt.end,
+//         room: "LH-101"
+//       }
+//     });
+//   }
+
+//   /* ---------------- Class Sessions ---------------- */
+
+//   console.log("📅 Creating class sessions...");
+
+//   const timetables = await prisma.timetable.findMany({
+//     include: {
+//       subject: {
+//         include: {
+//           teachers: true
+//         }
+//       }
+//     }
+//   });
+
+//   for (const tt of timetables) {
+//     if (!tt.dayOfWeek) continue;
+
+//     const baseDate = nextDateForDay(tt.dayOfWeek);
+
+//     for (const st of tt.subject.teachers) {
+//       await prisma.classSession.create({
+//         data: {
+//           subjectId: tt.subjectId,
+//           teacherId: st.teacherId,
+//           sessionDate: baseDate,
+//           startTime: timeOnDate(baseDate, tt.startTime),
+//           endTime: timeOnDate(baseDate, tt.endTime),
+//           room: tt.room ?? "N/A"
+//         }
+//       });
+//     }
+//   }
+
+//   console.log("🎉 Seeding complete!");
+// }
+
+// /* ---------------- run ---------------- */
+
+// seed()
+//   .catch(console.error)
+//   .finally(() => prisma.$disconnect());
+
+ 
+const COMMON_PASSWORD = "admin123"; // ❗ NOT HASHED
+
+async function main() {
+  console.log("🔥 Wiping database...");
+
+  // ---- DELETE IN FK SAFE ORDER ----
   await prisma.attendance.deleteMany();
   await prisma.classSession.deleteMany();
+  await prisma.timetable.deleteMany();
   await prisma.enrollment.deleteMany();
   await prisma.subjectTeacher.deleteMany();
-  await prisma.timetable.deleteMany();
-  await prisma.subject.deleteMany();
+  await prisma.faceEmbedding.deleteMany();
   await prisma.userRole.deleteMany();
+  await prisma.subject.deleteMany();
   await prisma.role.deleteMany();
   await prisma.user.deleteMany();
 
-  console.log("✅ Old data removed");
+  console.log("🧹 Database cleared");
 
-  /* ---------------- Roles ---------------- */
-
-  const studentRole = await prisma.role.create({ data: { name: "student" } });
-  const teacherRole = await prisma.role.create({ data: { name: "teacher" } });
-
-  /* ---------------- Users ---------------- */
-
-  const teacher = await prisma.user.create({
-    data: {
-      name: "Dr. Sharma",
-      email: "sharma@college.edu",
-      hashPassword: "hashed",
-      branch: "CSE",
-      semester: 3,
-      roles: {
-        create: { roleId: teacherRole.id }
-      }
-    }
+  // ---- ROLE ----
+  const teacherRole = await prisma.role.create({
+    data: { name: "TEACHER" }
   });
 
-  const student = await prisma.user.create({
-    data: {
-      name: "Abhijit",
-      email: "abhijit@gmail.com",
-      hashPassword: "hashed",
-      branch: "CSE",
-      semester: 3,
-      roles: {
-        create: { roleId: studentRole.id }
-      }
-    }
-  });
-
-  /* ---------------- Subjects ---------------- */
-
-  const dsa = await prisma.subject.create({
-    data: {
-      subjectCode: "CSE201",
-      name: "Data Structures",
-      branch: "CSE",
-      semester: 3
-    }
-  });
-
-  /* ---------------- Subject ↔ Teacher ---------------- */
-
-  await prisma.subjectTeacher.create({
-    data: {
-      subjectId: dsa.id,
-      teacherId: teacher.id
-    }
-  });
-
-  /* ---------------- Enrollment ---------------- */
-
-  await prisma.enrollment.create({
-    data: {
-      studentId: student.id,
-      subjectId: dsa.id
-    }
-  });
-
-  /* ---------------- Timetable ---------------- */
-
-  const timetableEntries = [
-    { dayOfWeek: DayOfWeek.MONDAY, start: "10:00", end: "11:00" },
-    { dayOfWeek: DayOfWeek.WEDNESDAY, start: "10:00", end: "11:00" },
-    { dayOfWeek: DayOfWeek.FRIDAY, start: "10:00", end: "11:00" }
+  // ---- PROFESSORS ----
+  const professorsData = [
+    { name: "Dr. Sharma", email: "sharma@college.edu" },
+    { name: "Dr. Verma", email: "verma@college.edu" },
+    { name: "Dr. Mehta", email: "mehta@college.edu" },
+    { name: "Dr. Rao", email: "rao@college.edu" },
+    { name: "Dr. Singh", email: "singh@college.edu" }
   ];
 
-  for (const tt of timetableEntries) {
-    await prisma.timetable.create({
+  const professors = [];
+  for (const prof of professorsData) {
+    const user = await prisma.user.create({
       data: {
-        branch: "CSE",
-        semester: 3,
-        subjectId: dsa.id,
-        dayOfWeek: tt.dayOfWeek,
-        startTime: tt.start,
-        endTime: tt.end,
-        room: "LH-101"
+        name: prof.name,
+        email: prof.email,
+        hashPassword: COMMON_PASSWORD,
+        roles: {
+          create: { roleId: teacherRole.id }
+        }
       }
     });
+    professors.push(user);
   }
 
-  /* ---------------- Class Sessions ---------------- */
+  // ---- SUBJECTS (ALL BRANCHES + SEMESTERS) ----
+  const data = {
+    CSE: {
+      1: ["Programming Fundamentals", "Mathematics I"],
+      2: ["Data Structures", "Discrete Mathematics"],
+      3: ["DBMS", "Computer Networks"],
+      4: ["Software Engineering", "Artificial Intelligence"]
+    },
+    ECE: {
+      1: ["Basic Electronics", "Mathematics I"],
+      2: ["Analog Circuits", "Signals & Systems"],
+      3: ["Digital Communication", "Microprocessors"],
+      4: ["VLSI Design", "Embedded Systems"]
+    },
+    MNC: {
+      1: ["Calculus", "Linear Algebra"],
+      2: ["Probability", "Data Structures"],
+      3: ["Numerical Methods", "Optimization"],
+      4: ["Machine Learning", "Deep Learning"]
+    },
+    MAE: {
+      1: ["Engineering Mechanics", "Mathematics I"],
+      2: ["Thermodynamics", "Material Science"],
+      3: ["Fluid Mechanics", "Manufacturing Process"],
+      4: ["Heat Transfer", "CAD CAM"]
+    }
+  };
 
-  console.log("📅 Creating class sessions...");
+  const timetableSlots = [
+    { dayOfWeek: "MONDAY", startTime: "09:00", endTime: "10:00" },
+    { dayOfWeek: "WEDNESDAY", startTime: "10:00", endTime: "11:00" },
+    { dayOfWeek: "FRIDAY", startTime: "11:00", endTime: "12:00" }
+  ];
 
-  const timetables = await prisma.timetable.findMany({
-    include: {
-      subject: {
-        include: {
-          teachers: true
+  for (const branch of Object.keys(data)) {
+    for (const semKey of Object.keys(data[branch])) {
+      const semester = Number(semKey);
+
+      for (const subjectName of data[branch][semester]) {
+        const subject = await prisma.subject.create({
+          data: {
+            subjectCode: `${branch}${semester}${Math.floor(Math.random() * 100)}`,
+            name: subjectName,
+            branch,
+            semester
+          }
+        });
+
+        const professor =
+          professors[Math.floor(Math.random() * professors.length)];
+
+        // Subject ↔ Professor
+        await prisma.subjectTeacher.create({
+          data: {
+            subjectId: subject.id,
+            teacherId: professor.id
+          }
+        });
+
+        // Timetable
+        for (const slot of timetableSlots) {
+          await prisma.timetable.create({
+            data: {
+              subjectId: subject.id,
+              branch,
+              semester,
+              ...slot
+            }
+          });
         }
+
+        // Class Session
+        await prisma.classSession.create({
+          data: {
+            subjectId: subject.id,
+            teacherId: professor.id,
+            sessionDate: new Date(),
+            startTime: new Date(),
+            endTime: new Date(),
+            room: "Room 101"
+          }
+        });
       }
     }
-  });
-
-  for (const tt of timetables) {
-    if (!tt.dayOfWeek) continue;
-
-    const baseDate = nextDateForDay(tt.dayOfWeek);
-
-    for (const st of tt.subject.teachers) {
-      await prisma.classSession.create({
-        data: {
-          subjectId: tt.subjectId,
-          teacherId: st.teacherId,
-          sessionDate: baseDate,
-          startTime: timeOnDate(baseDate, tt.startTime),
-          endTime: timeOnDate(baseDate, tt.endTime),
-          room: tt.room ?? "N/A"
-        }
-      });
-    }
   }
 
-  console.log("🎉 Seeding complete!");
+  console.log("✅ FULL DATABASE SEEDED SUCCESSFULLY");
 }
 
-/* ---------------- run ---------------- */
-
-seed()
+main()
   .catch(console.error)
   .finally(() => prisma.$disconnect());
+

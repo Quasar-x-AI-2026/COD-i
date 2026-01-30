@@ -65,3 +65,7 @@ fixed Bugs
 
 Harsh
 Finalised the app only fix bugs left
+
+Abhijit
+attendance endpoint added
+professor login endpoint added

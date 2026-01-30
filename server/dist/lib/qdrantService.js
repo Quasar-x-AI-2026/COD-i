@@ -19,43 +19,15 @@ export async function saveToQdrant(userId, embedding, meta) {
     });
     return pointId;
 }
-export async function fetchEmbeddingsByUserIds(userIds) {
-    const result = [];
-    let offset;
-    do {
-        const res = await qdrant.scroll(COLLECTION, {
-            with_vector: true,
-            with_payload: true,
-            limit: 100,
-            offset,
-            filter: {
-                must: [
-                    {
-                        key: "userId",
-                        match: { any: userIds }
-                    }
-                ]
-            }
-        });
-        for (const p of res.points) {
-            const payload = p.payload;
-            if (typeof payload?.userId !== "number" ||
-                typeof payload?.name !== "string" ||
-                typeof payload?.rollNumber !== "string" ||
-                !Array.isArray(p.vector)) {
-                continue;
-            }
-            result.push({
-                student_id: String(payload.userId),
-                name: payload.name,
-                roll_number: payload.rollNumber,
-                embedding: p.vector
-            });
-        }
-        offset =
-            typeof res.next_page_offset === "string"
-                ? res.next_page_offset
-                : undefined;
-    } while (offset);
-    return result;
+const COLLECTION_NAME = "face_embeddings";
+export async function getVectorByPointId(pointId) {
+    const result = await qdrant.retrieve(COLLECTION_NAME, {
+        ids: [pointId],
+        with_vector: true,
+        with_payload: false,
+    });
+    if (!result || result.length === 0) {
+        throw new Error(`Vector not found for pointId ${pointId}`);
+    }
+    return result[0].vector;
 }

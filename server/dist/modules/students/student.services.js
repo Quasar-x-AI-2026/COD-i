@@ -219,7 +219,6 @@ export async function registerStudent(data) {
         fs.unlinkSync(leftPath);
         fs.unlinkSync(rightPath);
     }
-    /* ---------- create user ---------- */
     const user = await prisma.user.create({
         data: {
             name: data.name,
@@ -240,12 +239,11 @@ export async function registerStudent(data) {
             }
         }
     });
-    /* ---------- ✅ CORRECT AUTO-ENROLL ---------- */
     const subjectsWithSessions = await prisma.subject.findMany({
         where: {
             branch: data.branch,
             semester: Number(data.semester),
-            sessions: { some: {} } // 🔥 THIS is the fix
+            sessions: { some: {} }
         }
     });
     if (subjectsWithSessions.length === 0) {
@@ -259,7 +257,6 @@ export async function registerStudent(data) {
             })),
         });
     }
-    /* ---------- embeddings ---------- */
     const embeddingResponse = await embeddingClient.post("/", {
         image_urls: [frontUrl, leftUrl, rightUrl],
         student_id: String(user.id),
