@@ -55,3 +55,10 @@ Harsh
 added login
 Implemented signup
 Working well on expo
+
+Harsh
+added attendence
+added profile added contextApi
+added rendering
+Optimised app
+fixed Bugs
