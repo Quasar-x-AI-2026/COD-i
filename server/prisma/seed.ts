@@ -3,7 +3,7 @@ import { PrismaClient } from '../src/generated/prisma/client'
 import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3'
 import { DayOfWeek } from '../src/generated/prisma/client'
 const adapter = new PrismaBetterSqlite3({
-  url: process.env.DATABASE_URL, 
+  url: process.env.DATABASE_URL!, 
 })
 
 export const prisma = new PrismaClient({ adapter })
@@ -141,49 +141,62 @@ export const prisma = new PrismaClient({ adapter })
 //   });
 
 
-  console.log("📚 Creating class sessions...");
+  // console.log("📚 Creating class sessions...");
 
-  // pick one date (today)
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // // pick one date (today)
+  // const today = new Date();
+  // today.setHours(0, 0, 0, 0);
 
-  const timetables = await prisma.timetable.findMany({
-    include: {
-      subject: {
-        include: {
-          teachers: {
-            include: {
-              teacher: true
-            }
-          }
-        }
-      }
-    }
+  // const timetables = await prisma.timetable.findMany({
+  //   include: {
+  //     subject: {
+  //       include: {
+  //         teachers: {
+  //           include: {
+  //             teacher: true
+  //           }
+  //         }
+  //       }
+  //     }
+  //   }
+  // });
+
+  // for (const tt of timetables) {
+  //   const teacher = tt.subject.teachers[0]?.teacher;
+  //   if (!teacher) continue;
+
+  //   const [sh, sm] = tt.startTime.split(":").map(Number);
+  //   const [eh, em] = tt.endTime.split(":").map(Number);
+
+  //   const startTime = new Date(today);
+  //   startTime.setHours(sh, sm, 0, 0);
+
+  //   const endTime = new Date(today);
+  //   endTime.setHours(eh, em, 0, 0);
+
+  //   await prisma.classSession.create({
+  //     data: {
+  //       subjectId: tt.subjectId,
+  //       teacherId: teacher.id,
+  //       sessionDate: today,
+  //       startTime,
+  //       endTime,
+  //       room: tt.room
+  //     }
+  //   });
+  // }
+
+  // console.log("✅ Class sessions created");
+
+
+
+  async function seedRoles() {
+  await prisma.role.createMany({
+    data: [
+      { name: "TEACHER" },
+      { name: "STUDENT" },
+      { name: "ADMIN" },
+    ],
+    
   });
-
-  for (const tt of timetables) {
-    const teacher = tt.subject.teachers[0]?.teacher;
-    if (!teacher) continue;
-
-    const [sh, sm] = tt.startTime.split(":").map(Number);
-    const [eh, em] = tt.endTime.split(":").map(Number);
-
-    const startTime = new Date(today);
-    startTime.setHours(sh, sm, 0, 0);
-
-    const endTime = new Date(today);
-    endTime.setHours(eh, em, 0, 0);
-
-    await prisma.classSession.create({
-      data: {
-        subjectId: tt.subjectId,
-        teacherId: teacher.id,
-        sessionDate: today,
-        startTime,
-        endTime,
-        room: tt.room
-      }
-    });
-  }
-
-  console.log("✅ Class sessions created");
+}
