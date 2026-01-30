@@ -30,7 +30,7 @@ class MultiFaceExtractor:
         self,
         model_path: str = MODEL_PATH_FACEREC,
         device: str = "cpu",
-        det_thresh: float = 0.4,
+        det_thresh: float = 0.6,
         max_faces: int = None,  # None = return all faces
         debug: bool = False
     ):
@@ -225,11 +225,8 @@ class MultiFaceExtractor:
 #        face = cv2.warpAffine(img, m, (112, 112))
         
         m, _ = cv2.estimateAffinePartial2D(
-            src, dst, 
-            method=cv2.RANSAC,
-            ransacReprojThreshold=3.0,
-            maxIters=2000,
-            confidence=0.99
+            src, dst,
+            method=cv2.LMEDS  # More stable than RANSAC for clean data
         )
         
         if m is None:
@@ -238,8 +235,7 @@ class MultiFaceExtractor:
         # Use better interpolation
         face = cv2.warpAffine(
             img, m, (112, 112),
-            flags=cv2.INTER_CUBIC,  # Better quality than default
-            #borderMode=cv2.BORDER_CONSTANT
+            flags=cv2.INTER_LINEAR,
             borderMode=cv2.BORDER_REFLECT
         )        
 

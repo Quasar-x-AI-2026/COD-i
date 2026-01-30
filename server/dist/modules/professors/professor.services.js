@@ -3,56 +3,67 @@ import { uploadImage } from "../../utlils/cloudinary.js";
 import { signToken } from "../../utlils/jwt.js";
 export async function professorLoginService(data) {
     const { email, password } = data;
+    /* ------------------ USER CHECK ------------------ */
     const professor = await prisma.user.findUnique({
         where: { email },
         include: {
-            roles: {
-                include: {
-                    role: true
-                }
-            }
+            roles: { include: { role: true } }
         }
     });
-    if (!professor) {
+    if (!professor)
         throw new Error("Invalid credentials");
-    }
     const isTeacher = professor.roles.some(r => r.role.name === "TEACHER");
-    if (!isTeacher) {
+    if (!isTeacher)
         throw new Error("User is not a professor");
-    }
-    if (professor.hashPassword !== password) {
+    if (professor.hashPassword !== password)
         throw new Error("Invalid credentials");
-    }
+    /* ------------------ FETCH SESSIONS ------------------ */
     const sessions = await prisma.classSession.findMany({
-        where: {
-            teacherId: professor.id
-        },
+        where: { teacherId: professor.id },
         include: {
             subject: {
-                include: {
-                    enrollments: true
-                }
+                include: { enrollments: true }
             }
         },
-        orderBy: {
-            startTime: "asc"
-        }
+        orderBy: { startTime: "asc" }
     });
-    const classes = sessions.map(session => ({
-        id: String(session.id),
-        code: session.subject.subjectCode,
-        name: session.subject.name,
-        time: session.startTime.toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit"
-        }),
-        location: session.room ?? "TBA",
-        students: session.subject.enrollments.length,
-        status: session.sessionDate > new Date()
-            ? "Upcoming"
-            : "Completed"
-    }));
-    const token = signToken({ id: professor.id, role: "TEACHER" });
+    const now = new Date();
+    let activeSessionId = null;
+    const classes = sessions.map(session => {
+        const isToday = session.sessionDate.toDateString() === now.toDateString();
+        const isOngoing = isToday &&
+            now >= session.startTime &&
+            now <= session.endTime;
+        if (isOngoing && !activeSessionId) {
+            activeSessionId = session.id;
+        }
+        return {
+            sessionId: session.id,
+            subjectId: session.subjectId,
+            code: session.subject.subjectCode,
+            name: session.subject.name,
+            startTime: session.startTime.toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit"
+            }),
+            endTime: session.endTime.toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit"
+            }),
+            location: session.room ?? "TBA",
+            students: session.subject.enrollments.length,
+            status: isOngoing
+                ? "ONGOING"
+                : session.sessionDate > now
+                    ? "UPCOMING"
+                    : "COMPLETED"
+        };
+    });
+    /* ------------------ TOKEN ------------------ */
+    const token = signToken({
+        id: professor.id,
+        role: "TEACHER"
+    });
     const role = professor.roles[0]?.role.name ?? "TEACHER";
     return {
         token,
@@ -62,6 +73,7 @@ export async function professorLoginService(data) {
             email: professor.email,
             role
         },
+        activeSessionId, // ⭐ THIS IS WHAT YOU WANTED
         classes
     };
 }

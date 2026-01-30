@@ -10,7 +10,7 @@ class AttendanceOrchestrator:
     Processes images with multiple people and returns embeddings for all detected faces.
     """
     
-    def _init_(
+    def __init__(
         self,
         detector: MultiFaceExtractor = None,
         embedder: FaceEmbeddingInference = None

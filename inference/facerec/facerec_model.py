@@ -240,11 +240,8 @@ class FaceExtractor:
         dst = ARC_TEMPLATE
 
         m, _ = cv2.estimateAffinePartial2D(
-            src, dst, 
-            method=cv2.RANSAC,
-            ransacReprojThreshold=3.0,
-            maxIters=2000,
-            confidence=0.99
+            src, dst,
+            method=cv2.LMEDS  # Deterministic, robust to outliers
         )
         
         if m is None:
@@ -252,7 +249,7 @@ class FaceExtractor:
 
         face = cv2.warpAffine(
             img, m, (112, 112),
-            flags=cv2.INTER_CUBIC,
+            flags=cv2.INTER_LINEAR,
             borderMode=cv2.BORDER_REFLECT
         )
 
