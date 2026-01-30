@@ -20,7 +20,7 @@ app = FastAPI(title="Attendance Recognition API", version="1.0.0")
 # Initialize models globally (loaded once at startup)
 detector = MultiFaceExtractor(debug=False)
 embedder = ArcFaceONNXEmbedder()
-orchestrator = AttendanceOrchestrator(detector=detector, embedder=embedder)
+orchestrator = AttendanceOrchestrator()
 
 
 # ===== REQUEST/RESPONSE MODELS =====
@@ -157,7 +157,12 @@ def match_embedding_to_students(
         centroid = student_data["embedding"]
         
         # Cosine similarity (both embeddings are L2-normalized)
-        similarity = float(np.dot(embedding, centroid))
+        #similarity = float(np.dot(embedding, centroid))
+        # Use cosine + Euclidean hybrid
+        
+        similarity_cosine = np.dot(embedding, centroid)
+        similarity_euclidean = 1 / (1 + np.linalg.norm(embedding - centroid))
+        similarity = 0.7 * similarity_cosine + 0.3 * similarity_euclidean
         
         if similarity > best_similarity:
             best_similarity = similarity

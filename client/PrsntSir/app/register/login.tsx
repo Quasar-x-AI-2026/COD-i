@@ -1,4 +1,6 @@
+import { useAuth } from "@/context/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFonts } from "expo-font";
 import { useRouter } from "expo-router";
 import { useState } from "react";
@@ -97,6 +99,7 @@ const CustomInput = ({
 };
 
 const LoginScreen = () => {
+  const { login } = useAuth();
   const router = useRouter();
   const [fontsLoaded] = useFonts({
     "OpenSans-Regular": require("../../assets/fonts/Raleway-VariableFont_wght.ttf"),
@@ -154,7 +157,7 @@ const LoginScreen = () => {
       console.log("=== SENDING LOGIN REQUEST ===");
       console.log(JSON.stringify(formData, null, 2));
 
-      const response = await fetch("http://10.2.4.2:3000/auth/login", {
+      const response = await fetch("http://192.168.9.130:3000/student/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -173,9 +176,10 @@ const LoginScreen = () => {
 
       console.log("=== LOGIN SUCCESS ===", result);
 
-      // Store token if your backend sends one
-      // await AsyncStorage.setItem('authToken', result.token);
-      // await AsyncStorage.setItem('userId', result.user.id);
+      // Storing the token and user ID in AsyncStorage
+      await login(result.token, result.user);
+      await AsyncStorage.setItem("authToken", result.token);
+      await AsyncStorage.setItem("userId", JSON.stringify(result.user.id));
 
       Alert.alert("Login Successful", `Welcome back !`, [
         {

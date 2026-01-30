@@ -30,7 +30,7 @@ class FaceExtractor:
         self,
         model_path: str = MODEL_PATH_FACEREC,
         device: str = "cpu",
-        det_thresh: float = 0.0,
+        det_thresh: float = 0.6,
         debug: bool = True
     ):
         self.reader = PhotoFrameReader()
@@ -218,11 +218,31 @@ class FaceExtractor:
         src = lm.astype(np.float32)
         dst = ARC_TEMPLATE
 
-        m, _ = cv2.estimateAffinePartial2D(src, dst)
-        if m is None:
-            raise ValueError("Affine transform failed")
+#        m, _ = cv2.estimateAffinePartial2D(src, dst)
+#        if m is None:
+#            raise ValueError("Affine transform failed")
+#
+#        face = cv2.warpAffine(img, m, (112, 112))
 
-        face = cv2.warpAffine(img, m, (112, 112))
+        m, _ = cv2.estimateAffinePartial2D(
+            src, dst, 
+            method=cv2.RANSAC,
+            ransacReprojThreshold=3.0,
+            maxIters=2000,
+            confidence=0.99
+        )
+        
+        if m is None:
+            raise ValueError(f"Affine transform failed")
+
+        # Use better interpolation
+        face = cv2.warpAffine(
+            img, m, (112, 112),
+            flags=cv2.INTER_CUBIC,  # Better quality than default
+            #borderMode=cv2.BORDER_CONSTANT
+            borderMode=cv2.BORDER_REFLECT
+        )
+
 
         if self.debug:
             fname = f"debug_{np.random.randint(1e9)}.jpg"

@@ -56,5 +56,9 @@ added login
 Implemented signup
 Working well on expo
 
-Vedant + Kaustuk
-Added Multiple face rec logic and attendance api on port 8001
+Harsh
+added attendence
+added profile added contextApi
+added rendering
+Optimised app
+fixed Bugs
