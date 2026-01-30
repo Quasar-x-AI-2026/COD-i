@@ -15,7 +15,7 @@ ARC_TEMPLATE = np.array(
         [41.5493, 92.3655],   # left mouth
         [70.7299, 92.2041],   # right mouth
     ],
-    dtype=np.float32
+    dtype=np.float320
 )
 
 

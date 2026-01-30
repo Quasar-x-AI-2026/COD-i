@@ -34,3 +34,6 @@ added and updated stuff
 
 Vedant-
 added tensor aggregator and face consistency check
+
+Vedant-
+added final Orchestrator and registration-time embedding generatror
