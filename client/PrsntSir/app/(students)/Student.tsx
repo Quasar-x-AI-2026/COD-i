@@ -31,37 +31,30 @@ const COLORS = {
 
 const StudentSchedule = ({ navigation }) => {
   const { user, classes } = useAuth();
-
-  // ✅ FIX 1: Get classes from context (not user.classes)
   const CLASSES = classes && Array.isArray(classes) ? classes : [];
 
   const [syncedClasses, setSyncedClasses] = useState([]);
   const [calendarId, setCalendarId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  // ✅ FIX 2: Debug logging to see what we're getting
   useEffect(() => {
     console.log("[DEBUG] StudentSchedule mounted");
     console.log("User object:", user);
     console.log("Classes from context:", classes);
     console.log("Classes array:", CLASSES);
     console.log("Classes count:", CLASSES.length);
-
-    // ✅ FIX 3: Validate user is loaded
     if (!user || !user.id) {
-      console.warn("⚠️ User not loaded yet");
+      console.warn(" User not loaded yet");
       setError("User data not loaded. Please login again.");
       setLoading(false);
       return;
     }
 
     if (CLASSES.length === 0) {
-      console.warn("⚠️ No classes found for this user");
+      console.warn(" No classes found for this user");
       setLoading(false);
       return;
     }
-
     initializePermissions();
   }, [user, classes]);
 
@@ -75,19 +68,19 @@ const StudentSchedule = ({ navigation }) => {
       const { status } = await Calendar.requestCalendarPermissionsAsync();
 
       if (status !== "granted") {
-        console.warn("⚠️ Calendar permission denied");
+        console.warn(" Calendar permission denied");
         setError("Calendar permission is required to sync classes.");
         setLoading(false);
         return;
       }
 
-      console.log("✅ Calendar permission granted");
+      console.log(" Calendar permission granted");
 
       setTimeout(() => {
         initializeCalendar();
       }, 500);
     } catch (error) {
-      console.error("❌ Permission error:", error);
+      console.error(" Permission error:", error);
       setError("Failed to request calendar permissions.");
       setLoading(false);
     }
@@ -132,7 +125,7 @@ const StudentSchedule = ({ navigation }) => {
 
         if (existingCalendar) {
           id = existingCalendar.id;
-          console.log("✅ Using existing calendar:", id);
+          console.log(" Using existing calendar:", id);
         } else {
           const googleCalendar = writableCalendars.find(
             (cal) => cal.source.type === "com.google",
@@ -140,7 +133,7 @@ const StudentSchedule = ({ navigation }) => {
 
           if (googleCalendar) {
             id = googleCalendar.id;
-            console.log("✅ Using Google Calendar:", id, googleCalendar.title);
+            console.log(" Using Google Calendar:", id, googleCalendar.title);
           } else {
             id = await Calendar.createCalendarAsync({
               title: "Class Schedule",
@@ -150,7 +143,7 @@ const StudentSchedule = ({ navigation }) => {
               sourceId: sourceId,
               isVisible: true,
             });
-            console.log("✅ Created new calendar:", id);
+            console.log(" Created new calendar:", id);
           }
         }
       } else {
@@ -173,10 +166,10 @@ const StudentSchedule = ({ navigation }) => {
       }
 
       setCalendarId(id);
-      console.log("✅ Calendar initialized successfully:", id);
+      console.log(" Calendar initialized successfully:", id);
       setLoading(false);
     } catch (error) {
-      console.error("❌ Calendar initialization error:", error);
+      console.error(" Calendar initialization error:", error);
       setError(`Calendar error: ${error.message}`);
       setLoading(false);
     }
@@ -187,14 +180,14 @@ const StudentSchedule = ({ navigation }) => {
       const date = new Date();
 
       if (!timeString || typeof timeString !== "string") {
-        console.warn("⚠️ Invalid timeString:", timeString);
+        console.warn(" Invalid timeString:", timeString);
         return date;
       }
 
       const [time, modifier] = timeString.split(" ");
 
       if (!time) {
-        console.warn("⚠️ Time part missing:", timeString);
+        console.warn(" Time part missing:", timeString);
         return date;
       }
 
@@ -209,14 +202,13 @@ const StudentSchedule = ({ navigation }) => {
       date.setHours(hours, minutes, 0, 0);
       return date;
     } catch (error) {
-      console.error("❌ Error parsing time:", timeString, error);
+      console.error(" Error parsing time:", timeString, error);
       return new Date();
     }
   };
 
   const handleSync = async (classItem) => {
     try {
-      // ✅ FIX 4: Validate classItem
       if (!classItem || !classItem.id) {
         Alert.alert("Error", "Invalid class data");
         return;
@@ -238,26 +230,20 @@ const StudentSchedule = ({ navigation }) => {
       console.log("[DEBUG] Syncing class:", classItem.code);
 
       const startDate = getDateForTime(classItem.timeString);
-      const durationMinutes = classItem.durationMinutes || 60; // Default 60 min if not provided
+      const durationMinutes = classItem.durationMinutes || 60;
       const endDate = new Date(startDate.getTime() + durationMinutes * 60000);
-
       console.log("Start:", startDate);
       console.log("End:", endDate);
-
-      // Create event with alarms
       const eventId = await Calendar.createEventAsync(calendarId, {
         title: `${classItem.code}: ${classItem.subject}`,
         startDate,
         endDate,
         location: classItem.room || "Unknown",
         notes: `Professor: ${classItem.professor || "Unknown"}`,
-        alarms: [
-          { relativeOffset: -15 }, // 15 minutes before
-          { relativeOffset: -5 }, // 5 minutes before
-        ],
+        alarms: [{ relativeOffset: -15 }, { relativeOffset: -5 }],
       });
 
-      console.log("✅ Event created:", eventId);
+      console.log(" Event created:", eventId);
 
       setSyncedClasses([...syncedClasses, classItem.id]);
       Alert.alert(
@@ -265,7 +251,7 @@ const StudentSchedule = ({ navigation }) => {
         `${classItem.code} added to calendar with reminders!`,
       );
     } catch (error) {
-      console.error("❌ Sync error:", error);
+      console.error(" Sync error:", error);
       Alert.alert("Error", `Failed to sync: ${error.message}`);
     }
   };
@@ -283,7 +269,6 @@ const StudentSchedule = ({ navigation }) => {
     }
   };
 
-  // ✅ FIX 5: Handle loading state
   if (loading) {
     return (
       <SafeAreaProvider>
@@ -296,8 +281,6 @@ const StudentSchedule = ({ navigation }) => {
       </SafeAreaProvider>
     );
   }
-
-  // ✅ FIX 6: Handle error state
   if (error) {
     return (
       <SafeAreaProvider>
@@ -318,7 +301,6 @@ const StudentSchedule = ({ navigation }) => {
     );
   }
 
-  // ✅ FIX 7: Handle no classes state
   if (!user) {
     return (
       <SafeAreaProvider>

@@ -83,8 +83,6 @@ const UserPage = () => {
 
   const takePhoto = async (index) => {
     console.log(`[DEBUG] Attempting to open camera for slot ${index + 1}...`);
-
-    // 1. Request Permissions
     const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
     if (permissionResult.granted === false) {
       Alert.alert(
@@ -113,10 +111,7 @@ const UserPage = () => {
       console.log(" Local URI:", asset.uri);
 
       if (asset.base64) {
-        console.log(
-          "🔢 Base64 Snippet:",
-          asset.base64.substring(0, 30) + "...",
-        );
+        console.log("Base64 Snippet:", asset.base64.substring(0, 30) + "...");
       }
     } else {
       console.log("[DEBUG] Camera cancelled by user.");
@@ -124,17 +119,16 @@ const UserPage = () => {
   };
 
   const submitAttendance = async () => {
-    console.log("\n🔘 [DEBUG] Submit Button Pressed!");
+    console.log("\n [DEBUG] Submit Button Pressed!");
     if (attendanceImages.includes(null)) {
       Alert.alert("Incomplete", "Please take all 3 photos before submitting.");
-      console.log("❌ [ERROR] Validation Failed: Missing photos.");
+      console.log(" [ERROR] Validation Failed: Missing photos.");
       return;
     }
 
     setSubmitting(true);
 
     try {
-      // Create FormData
       const formData = new FormData();
       formData.append("role", userRole);
       formData.append("classCode", selectedClass.code);
@@ -142,7 +136,6 @@ const UserPage = () => {
       formData.append("location", selectedClass.location);
       formData.append("timestamp", new Date().toISOString());
 
-      // Append images
       attendanceImages.forEach((uri, index) => {
         formData.append(`photo_${index + 1}`, {
           uri: uri,
@@ -194,7 +187,7 @@ const UserPage = () => {
         Alert.alert("Error", data.message || "Failed to submit attendance.");
       }
     } catch (error) {
-      console.error("❌ [ERROR] Submission failed:", error);
+      console.error("[ERROR] Submission failed:", error);
       Alert.alert("Error", "Failed to submit attendance. Please try again.");
     } finally {
       setSubmitting(false);
