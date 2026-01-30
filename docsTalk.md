@@ -13,3 +13,7 @@ Purpose: To render the image byes.
 Abhijit
 added folder setup and server setup
 added db setup and defined schemas
+
+Vedant-
+Added more structure to the face input pipeline
+added face rec model + alignment infra
