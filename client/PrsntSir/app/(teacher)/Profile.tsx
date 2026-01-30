@@ -527,7 +527,6 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
   },
 
-  // Logout Button
   logoutFullBtn: {
     backgroundColor: COLORS.danger,
     marginHorizontal: 24,
@@ -550,7 +549,6 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
 
-  // Footer
   footer: {
     alignItems: "center",
     marginBottom: 24,

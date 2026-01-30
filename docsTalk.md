@@ -62,3 +62,6 @@ added profile added contextApi
 added rendering
 Optimised app
 fixed Bugs
+
+Harsh
+Finalised the app only fix bugs left
