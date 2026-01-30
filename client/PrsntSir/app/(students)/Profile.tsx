@@ -97,7 +97,6 @@ const UserDetailsPage = ({ navigation }) => {
         {
           text: "OK",
           onPress: () => {
-            // Navigate to login screen
             navigation?.reset({
               index: 0,
               routes: [{ name: "Login" }],
@@ -357,7 +356,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
-  // Header
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -376,13 +374,10 @@ const styles = StyleSheet.create({
   logoutBtn: {
     padding: 8,
   },
-
-  // Scroll Content
   scrollContent: {
     paddingVertical: 24,
   },
 
-  // Profile Card
   profileCard: {
     backgroundColor: COLORS.white,
     marginHorizontal: 24,
@@ -446,7 +441,6 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
   },
 
-  // Section
   section: {
     marginHorizontal: 24,
     marginBottom: 24,
@@ -458,7 +452,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
 
-  // Detail Card
   detailCard: {
     backgroundColor: COLORS.white,
     borderRadius: 12,
@@ -492,8 +485,6 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontWeight: "600",
   },
-
-  // Action Card
   actionCard: {
     backgroundColor: COLORS.white,
     borderRadius: 12,
@@ -527,7 +518,6 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
   },
 
-  // Logout Button
   logoutFullBtn: {
     backgroundColor: COLORS.danger,
     marginHorizontal: 24,
@@ -550,7 +540,6 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
 
-  // Footer
   footer: {
     alignItems: "center",
     marginBottom: 24,
