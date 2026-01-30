@@ -151,7 +151,7 @@ const RoleToggle = ({ isStudent, onToggle }) => {
       <View style={styles.endpointInfo}>
         <Ionicons name="cloud-outline" size={16} color={COLORS.textSecondary} />
         <Text style={styles.endpointText}>
-          {isStudent ? "Student API" : "Professor API"}
+          {isStudent ? "For Student" : "For Professor"}
         </Text>
       </View>
     </View>
@@ -619,7 +619,7 @@ const styles = StyleSheet.create({
   },
   endpointText: {
     fontSize: 12,
-    color: COLORS.primary,
+    color: "#000",
     fontWeight: "600",
     marginLeft: 6,
     fontFamily: "OpenSans-Regular",
