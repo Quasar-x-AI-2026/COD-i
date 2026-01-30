@@ -9,3 +9,5 @@ Instruction:->
 Kaustuk:
  Done frame_renderer file.
   Purpose: To render the image byes.
+Abhijit
+added folder setup and server setup 
