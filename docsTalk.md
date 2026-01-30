@@ -69,3 +69,6 @@ Finalised the app only fix bugs left
 Abhijit
 attendance endpoint added
 professor login endpoint added
+
+Abhijit
+minot fixed in professor endpoint and payload changes made

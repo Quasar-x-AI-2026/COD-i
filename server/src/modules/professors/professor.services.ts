@@ -7,78 +7,84 @@ import { signToken } from "../../utlils/jwt.js";
 export async function professorLoginService(data: {
   email: string;
   password: string;
-  role:string
+  role: string;
 }) {
   const { email, password } = data;
 
-   const professor = await prisma.user.findUnique({
+
+  const professor = await prisma.user.findUnique({
     where: { email },
     include: {
-      roles: {
-        include: {
-          role: true
-        }
-      }
+      roles: { include: { role: true } }
     }
   });
 
-  if (!professor) {
+  if (!professor) throw new Error("Invalid credentials");
+
+  const isTeacher = professor.roles.some(r => r.role.name === "TEACHER");
+  if (!isTeacher) throw new Error("User is not a professor");
+
+  if (professor.hashPassword !== password)
     throw new Error("Invalid credentials");
-  }
 
-   const isTeacher = professor.roles.some(
-    r => r.role.name === "TEACHER"
-  );
 
-  if (!isTeacher) {
-    throw new Error("User is not a professor");
-  }
-
-   if (professor.hashPassword !== password) {
-    throw new Error("Invalid credentials");
-  }
-
-   const sessions: Prisma.ClassSessionGetPayload<{
+  const sessions = await prisma.classSession.findMany({
+    where: { teacherId: professor.id },
     include: {
       subject: {
-        include: {
-          enrollments: true;
-        };
-      };
+        include: { enrollments: true }
+      }
+    },
+    orderBy: { startTime: "asc" }
+  });
+
+  const now = new Date();
+  let activeSessionId: number | null = null;
+
+  const classes = sessions.map(session => {
+    const isToday =
+      session.sessionDate.toDateString() === now.toDateString();
+
+    const isOngoing =
+      isToday &&
+      now >= session.startTime &&
+      now <= session.endTime;
+
+    if (isOngoing && !activeSessionId) {
+      activeSessionId = session.id;
+    }
+
+    return {
+      sessionId: session.id,
+      subjectId: session.subjectId,
+      code: session.subject.subjectCode,
+      name: session.subject.name,
+      startTime: session.startTime.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit"
+      }),
+      endTime: session.endTime.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit"
+      }),
+      location: session.room ?? "TBA",
+      students: session.subject.enrollments.length,
+      status: isOngoing
+        ? "ONGOING"
+        : session.sessionDate > now
+        ? "UPCOMING"
+        : "COMPLETED"
     };
-  }>[] = await prisma.classSession.findMany({
-    where: {
-      teacherId: professor.id
-    },
-    include: {
-      subject: {
-        include: {
-          enrollments: true
-        }
-      }
-    },
-    orderBy: {
-      startTime: "asc"
-    }
   });
 
-   const classes = sessions.map(session => ({
-    id: String(session.id),
-    code: session.subject.subjectCode,
-    name: session.subject.name,
-    time: session.startTime.toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit"
-    }),
-    location: session.room ?? "TBA",
-    students: session.subject.enrollments.length,
-    status:
-      session.sessionDate > new Date()
-        ? "Upcoming"
-        : "Completed"
-  }));
-  const token = signToken({ id: professor.id, role: "TEACHER" });
-  const role = professor.roles[0]?.role.name ?? "TEACHER";    
+
+  const token = signToken({
+    id: professor.id,
+    role: "TEACHER"
+  });
+
+  const role = professor.roles[0]?.role.name ?? "TEACHER";
+
   return {
     token,
     professor: {
@@ -87,12 +93,14 @@ export async function professorLoginService(data: {
       email: professor.email,
       role
     },
+    activeSessionId,  
     classes
   };
 }
 
 
-import axios from "axios";
+
+
 
 
  
@@ -376,9 +384,7 @@ export async function markAttendanceService({
   console.log("🟢 Mark Attendance Started");
   console.log("📌 Session ID:", sessionId);
 
-  /* ---------------------------------- */
-  /* 1️⃣ Upload classroom images        */
-  /* ---------------------------------- */
+   
 
   const image_urls: string[] = [];
 
@@ -391,9 +397,7 @@ export async function markAttendanceService({
     for (const file of files) fs.unlinkSync(file.path);
   }
 
-  /* ---------------------------------- */
-  /* 2️⃣ Load session + enrolled users  */
-  /* ---------------------------------- */
+ 
 
   const session = await prisma.classSession.findUnique({
     where: { id: sessionId },
@@ -413,10 +417,7 @@ export async function markAttendanceService({
   });
 
   if (!session) throw new Error("Session not found");
-
-  /* ---------------------------------- */
-  /* 3️⃣ Build students payload         */
-  /* ---------------------------------- */
+ 
 
   const students = [];
 
@@ -441,9 +442,7 @@ export async function markAttendanceService({
   if (students.length === 0)
     throw new Error("No students have embeddings");
 
-  /* ---------------------------------- */
-  /* 4️⃣ Send payload to ML server      */
-  /* ---------------------------------- */
+ 
 
   const payload = {
     image_urls,
@@ -457,10 +456,7 @@ export async function markAttendanceService({
     present_students,
     absent_students,
   } = response.data;
-
-  /* ---------------------------------- */
-  /* 5️⃣ SAVE ATTENDANCE (TRANSACTION)  */
-  /* ---------------------------------- */
+ 
 
   await prisma.$transaction(async (tx) => {
     for (const s of present_students) {
