@@ -11,5 +11,19 @@ Done frame_renderer file.
 Purpose: To render the image byes.
 
 Abhijit
-added folder setup and server setup 
+added folder setup and server setup
 added db setup and defined schemas
+
+Vedant-
+Added more structure to the face input pipeline
+added face rec model + alignment infra
+
+Harsh-
+Adding Onboarding Page
+Makign the Expo App Smooth
+
+kaustuk:
+ added embedding_model file
+
+ Vedant-
+ config bug fix and model file added
