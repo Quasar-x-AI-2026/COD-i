@@ -17,3 +17,7 @@ added db setup and defined schemas
 Vedant-
 Added more structure to the face input pipeline
 added face rec model + alignment infra
+
+Harsh-
+Adding Onboarding Page
+Makign the Expo App Smooth
