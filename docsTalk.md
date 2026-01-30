@@ -55,3 +55,6 @@ Harsh
 added login
 Implemented signup
 Working well on expo
+
+Vedant + Kaustuk
+Added Multiple face rec logic and attendance api on port 8001
