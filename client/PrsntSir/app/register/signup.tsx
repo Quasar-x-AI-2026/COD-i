@@ -543,7 +543,7 @@ const styles = StyleSheet.create({
   },
   headerText: {
     fontSize: 32,
-    fontWeight: "700",
+    fontWeight: "400",
     color: COLORS.text,
     textAlign: "center",
     marginBottom: 12,

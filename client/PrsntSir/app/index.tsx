@@ -120,9 +120,9 @@ const OnboardingScreen = () => {
   };
   const handleGetStarted = async () => {
     try {
-      await AsyncStorage.setItem("onboardingCompleted", "true");
-      // router.replace("/register/signup");
-      router.replace("/(teacher)/Classes");
+      await AsyncStorage.setItem("onboardingCompleted1", "true");
+      router.replace("/register/signup");
+      // router.replace("/(teacher)/Classes");
     } catch (error) {
       console.error("Error saving onboarding status:", error);
       router.replace("/register/signup");
