@@ -25,18 +25,23 @@ export async function register(req: Request, res: Response) {
 
 export async function login(req: Request, res: Response) {
   try {
-    if(!req.body){
-        res.status(400).json({
-            message:"All fields are reuqired"
-        })
+    console.log(req.body)
+
+    if (!req.body || Object.keys(req.body).length === 0) {
+      return res.status(400).json({
+        message: "All fields are required"
+      })
     }
+
     const result = await loginStudent(req.body)
 
     console.log(result)
-    res.json(result)
+    return res.json(result)
+
   } catch (error: any) {
-    res.status(400).json({
+    return res.status(400).json({
       message: error.message
     })
   }
 }
+

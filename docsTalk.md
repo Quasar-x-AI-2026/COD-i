@@ -14,6 +14,7 @@ Abhijit
 added folder setup and server setup
 added db setup and defined schemas
 students and professor endpoint added
+minor bugs fixed in login and register endpoint
 
 Vedant-
 Added more structure to the face input pipeline

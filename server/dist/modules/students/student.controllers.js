@@ -19,17 +19,18 @@ export async function register(req, res) {
 }
 export async function login(req, res) {
     try {
-        if (!req.body) {
-            res.status(400).json({
-                message: "All fields are reuqired"
+        console.log(req.body);
+        if (!req.body || Object.keys(req.body).length === 0) {
+            return res.status(400).json({
+                message: "All fields are required"
             });
         }
         const result = await loginStudent(req.body);
         console.log(result);
-        res.json(result);
+        return res.json(result);
     }
     catch (error) {
-        res.status(400).json({
+        return res.status(400).json({
             message: error.message
         });
     }
