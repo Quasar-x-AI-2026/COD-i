@@ -31,6 +31,12 @@ const COLORS = {
   shadow: "rgba(0, 0, 0, 0.1)",
 };
 
+// API Endpoints
+const API_ENDPOINTS = {
+  STUDENT: "http://192.168.9.130:3000/student/login",
+  TEACHER: "http://192.168.9.130:3000/professor/login",
+};
+
 const CustomInput = ({
   placeholder,
   value,
@@ -98,6 +104,61 @@ const CustomInput = ({
   );
 };
 
+const RoleToggle = ({ isStudent, onToggle }) => {
+  return (
+    <View style={styles.toggleContainer}>
+      <View style={styles.roleLabelsContainer}>
+        <Text
+          style={[styles.roleLabel, isStudent && styles.roleActiveLabelLeft]}
+        >
+          Student
+        </Text>
+        <Text
+          style={[styles.roleLabel, !isStudent && styles.roleActiveLabelRight]}
+        >
+          Professor
+        </Text>
+      </View>
+
+      <TouchableOpacity
+        style={styles.toggleBackdrop}
+        onPress={onToggle}
+        activeOpacity={1}
+      >
+        <View
+          style={[styles.toggleSlider, !isStudent && styles.toggleSliderRight]}
+        >
+          <Ionicons
+            name={isStudent ? "person" : "school"}
+            size={20}
+            color={COLORS.text}
+          />
+        </View>
+
+        <View style={styles.toggleLabels}>
+          <Text
+            style={[styles.toggleLabel, isStudent && styles.toggleLabelActive]}
+          >
+            Student
+          </Text>
+          <Text
+            style={[styles.toggleLabel, !isStudent && styles.toggleLabelActive]}
+          >
+            Professor
+          </Text>
+        </View>
+      </TouchableOpacity>
+
+      <View style={styles.endpointInfo}>
+        <Ionicons name="cloud-outline" size={16} color={COLORS.textSecondary} />
+        <Text style={styles.endpointText}>
+          {isStudent ? "Student Login" : "Professor Login"}
+        </Text>
+      </View>
+    </View>
+  );
+};
+
 const LoginScreen = () => {
   const { login } = useAuth();
   const router = useRouter();
@@ -105,6 +166,7 @@ const LoginScreen = () => {
     "OpenSans-Regular": require("../../assets/fonts/Raleway-VariableFont_wght.ttf"),
   });
 
+  const [isStudent, setIsStudent] = useState(true);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -120,7 +182,6 @@ const LoginScreen = () => {
 
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-    // Clear error when user starts typing
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: "" }));
     }
@@ -145,6 +206,60 @@ const LoginScreen = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  const saveToAsyncStorage = async (token, user) => {
+    try {
+      console.log("[DEBUG] Saving to AsyncStorage...");
+      if (!token || typeof token !== "string") {
+        throw new Error("Invalid token received from server");
+      }
+      if (!user || typeof user !== "object") {
+        throw new Error("Invalid user data received from server");
+      }
+      if (!user.id) {
+        throw new Error("User ID is missing from server response");
+      }
+      const userDataToStore = {
+        id: user.id,
+        name: user.name || "User",
+        email: user.email || formData.email,
+        role: user.role || (isStudent ? "STUDENT" : "TEACHER"),
+      };
+      if (user.branch) {
+        userDataToStore.branch = user.branch;
+      }
+      if (user.semester) {
+        userDataToStore.semester = user.semester;
+      }
+
+      await AsyncStorage.setItem("authToken", token);
+      console.log(" Auth token stored");
+      await AsyncStorage.setItem("userData", JSON.stringify(userDataToStore));
+      console.log(" User data stored");
+      await AsyncStorage.setItem("userId", String(user.id));
+      console.log(" User ID stored");
+      const roleToStore = userDataToStore.role;
+      await AsyncStorage.setItem("userRole", roleToStore);
+      console.log(` User role stored: ${roleToStore}`);
+
+      console.log("[DEBUG] Verifying stored data...");
+      const storedToken = await AsyncStorage.getItem("authToken");
+      const storedUserData = await AsyncStorage.getItem("userData");
+      const storedRole = await AsyncStorage.getItem("userRole");
+
+      console.log(" Token verified:", storedToken ? "Present" : "Missing");
+      console.log(
+        " User data verified:",
+        storedUserData ? "Present" : "Missing",
+      );
+      console.log(" Role verified:", storedRole ? "Present" : "Missing");
+
+      return true;
+    } catch (error) {
+      console.error(" AsyncStorage Error:", error.message);
+      throw error;
+    }
+  };
+
   const handleLogin = async () => {
     if (!validateForm()) {
       Alert.alert("Validation Error", "Please fill all fields correctly");
@@ -154,10 +269,15 @@ const LoginScreen = () => {
     setLoading(true);
 
     try {
-      console.log("=== SENDING LOGIN REQUEST ===");
-      console.log(JSON.stringify(formData, null, 2));
+      const apiUrl = isStudent ? API_ENDPOINTS.STUDENT : API_ENDPOINTS.TEACHER;
+      const roleType = isStudent ? "Student" : "Professor";
 
-      const response = await fetch("http://192.168.9.130:3000/student/login", {
+      console.log("\n=== SENDING LOGIN REQUEST ===");
+      console.log(`Role: ${roleType}`);
+      console.log(`API: ${apiUrl}`);
+      console.log(`Email: ${formData.email}`);
+
+      const response = await fetch(apiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -169,33 +289,55 @@ const LoginScreen = () => {
       });
 
       const result = await response.json();
+      console.log("result", result);
+      console.log("=== RESPONSE RECEIVED ===");
+      console.log("Status:", response.status);
+      console.log("Response:", result);
 
       if (!response.ok) {
-        throw new Error(result.message || "Login failed");
+        throw new Error(result.message || `${roleType} login failed`);
+      }
+      if (!result || typeof result !== "object") {
+        throw new Error("Invalid response format from server");
       }
 
-      console.log("=== LOGIN SUCCESS ===", result);
+      if (!result.token) {
+        throw new Error("Server did not return authentication token");
+      }
 
-      // Storing the token and user ID in AsyncStorage
+      if (!result.user) {
+        throw new Error("Server did not return user data");
+      }
+      console.log(" Login validation passed");
+      await saveToAsyncStorage(result.token, result.user);
       await login(result.token, result.user);
-      await AsyncStorage.setItem("userData", JSON.stringify(result.user));
-      await AsyncStorage.setItem("authToken", result.token);
-      await AsyncStorage.setItem("userId", JSON.stringify(result.user.id));
 
-      Alert.alert("Login Successful", `Welcome back !`, [
-        {
-          text: "OK",
-          onPress: () => {
-            setFormData({ email: "", password: "" });
-            router.push("/(students)/Student");
+      console.log(" Login successful!");
+
+      Alert.alert(
+        "Login Successful",
+        `Welcome ${result.user.name || "User"}!`,
+        [
+          {
+            text: "OK",
+            onPress: () => {
+              setFormData({ email: "", password: "" });
+              if (isStudent) {
+                router.replace("/(students)/Student");
+              } else {
+                router.replace("/(teacher)/Classes");
+              }
+            },
           },
-        },
-      ]);
+        ],
+      );
     } catch (error) {
-      console.error("Login error:", error);
+      console.error(" Login Error:", error.message);
+      const roleType = isStudent ? "Student" : "Professor";
       Alert.alert(
         "Login Failed",
-        error.message || "Invalid email or password. Please try again.",
+        error.message ||
+          `Invalid ${roleType.toLowerCase()} credentials. Please try again.`,
       );
     } finally {
       setLoading(false);
@@ -238,6 +380,10 @@ const LoginScreen = () => {
                 Sign in to continue attendance
               </Text>
             </View>
+            <RoleToggle
+              isStudent={isStudent}
+              onToggle={() => setIsStudent(!isStudent)}
+            />
 
             <View style={styles.formCard}>
               <CustomInput
@@ -338,7 +484,7 @@ const styles = StyleSheet.create({
   },
   headerText: {
     fontSize: 32,
-    fontWeight: "700",
+    fontWeight: "600",
     color: COLORS.text,
     textAlign: "center",
     fontFamily: "OpenSans-Regular",
@@ -350,6 +496,103 @@ const styles = StyleSheet.create({
     fontFamily: "OpenSans-Regular",
     textAlign: "center",
   },
+
+  // Toggle Styles
+  toggleContainer: {
+    marginBottom: 32,
+    alignItems: "center",
+  },
+  roleLabelsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+    paddingHorizontal: 24,
+    marginBottom: 12,
+  },
+  roleLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: COLORS.textSecondary,
+    fontFamily: "OpenSans-Regular",
+  },
+  roleActiveLabelLeft: {
+    color: COLORS.primary,
+  },
+  roleActiveLabelRight: {
+    color: COLORS.primary,
+  },
+  toggleBackdrop: {
+    width: "100%",
+    height: 60,
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 6,
+    marginBottom: 12,
+    position: "relative",
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  toggleSlider: {
+    position: "absolute",
+    width: "50%",
+    height: 48,
+    backgroundColor: COLORS.primary,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    left: 6,
+    zIndex: 1,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  toggleSliderRight: {
+    left: "calc(50% + 3px)",
+  },
+  toggleLabels: {
+    flexDirection: "row",
+    width: "100%",
+    justifyContent: "space-between",
+    zIndex: 0,
+  },
+  toggleLabel: {
+    flex: 1,
+    textAlign: "center",
+    fontSize: 14,
+    fontWeight: "600",
+    color: COLORS.textSecondary,
+    fontFamily: "OpenSans-Regular",
+  },
+  toggleLabelActive: {
+    color: COLORS.text,
+    fontWeight: "700",
+  },
+  endpointInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: COLORS.primaryLight,
+    borderRadius: 8,
+  },
+  endpointText: {
+    fontSize: 12,
+    color: "#000",
+    fontWeight: "600",
+    marginLeft: 6,
+    fontFamily: "OpenSans-Regular",
+  },
+
   formCard: {
     backgroundColor: COLORS.card,
     borderRadius: 24,
