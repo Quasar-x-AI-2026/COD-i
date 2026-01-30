@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFonts } from "expo-font";
+import { router } from "expo-router";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -42,7 +43,7 @@ const OnboardingScreen = () => {
   const slides = [
     {
       id: "1",
-      title: "Smart Solutions.",
+      title: "Smart Solutions",
       subtitle: "CV-Powered, No Hardware",
       description: "CV-powered attendance tracking. No hardware needed.",
       extraText: "Simple, Secure & Accurate",
@@ -120,10 +121,10 @@ const OnboardingScreen = () => {
   const handleGetStarted = async () => {
     try {
       await AsyncStorage.setItem("onboardingCompleted", "true");
-      // router.replace("/(tabs)/Index");
+      router.replace("/register/signup");
     } catch (error) {
       console.error("Error saving onboarding status:", error);
-      // router.replace("/UserRegistration/Login");
+      router.replace("/register/signup");
     }
   };
 
