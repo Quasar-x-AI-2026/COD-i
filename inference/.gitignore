@@ -30,7 +30,9 @@ env/
 # Testing
 tmp/
 test_images/
-*.log
+test/
+*test.py
+*.log   
 .pytest_cache/
 .coverage
 htmlcov/

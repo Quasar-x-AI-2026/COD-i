@@ -15,7 +15,7 @@ ARC_TEMPLATE = np.array(
         [41.5493, 92.3655],   # left mouth
         [70.7299, 92.2041],   # right mouth
     ],
-    dtype=np.float320
+    dtype=np.float32
 )
 
 
@@ -30,7 +30,7 @@ class FaceExtractor:
         self,
         model_path: str = MODEL_PATH_FACEREC,
         device: str = "cpu",
-        det_thresh: float = 0.6,
+        det_thresh: float = 0.0,
         debug: bool = True
     ):
         self.reader = PhotoFrameReader()
