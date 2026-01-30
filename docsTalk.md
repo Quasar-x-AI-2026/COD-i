@@ -7,7 +7,11 @@ Instruction:->
 ->Where to consume
 
 Kaustuk:
- Done frame_renderer file.
-  Purpose: To render the image byes.
+Done frame_renderer file.
+Purpose: To render the image byes.
 Abhijit
-added folder setup and server setup 
+added folder setup and server setup
+
+Harsh:
+Sone folder initia;isation and added file structure of expo
+Making onboarding Page
