@@ -168,7 +168,6 @@ const UserDetailsPage = ({ navigation }) => {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Profile Card */}
           <View style={styles.profileCard}>
             <View style={styles.avatarSection}>
               <Image

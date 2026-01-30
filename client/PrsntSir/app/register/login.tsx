@@ -1,6 +1,5 @@
 import { useAuth } from "@/context/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFonts } from "expo-font";
 import { useRouter } from "expo-router";
 import { useState } from "react";
@@ -152,7 +151,7 @@ const RoleToggle = ({ isStudent, onToggle }) => {
       <View style={styles.endpointInfo}>
         <Ionicons name="cloud-outline" size={16} color={COLORS.textSecondary} />
         <Text style={styles.endpointText}>
-          {isStudent ? "Student Login" : "Professor Login"}
+          {isStudent ? "Student API" : "Professor API"}
         </Text>
       </View>
     </View>
@@ -206,58 +205,68 @@ const LoginScreen = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const saveToAsyncStorage = async (token, user) => {
-    try {
-      console.log("[DEBUG] Saving to AsyncStorage...");
-      if (!token || typeof token !== "string") {
-        throw new Error("Invalid token received from server");
-      }
-      if (!user || typeof user !== "object") {
-        throw new Error("Invalid user data received from server");
-      }
-      if (!user.id) {
-        throw new Error("User ID is missing from server response");
-      }
-      const userDataToStore = {
-        id: user.id,
-        name: user.name || "User",
-        email: user.email || formData.email,
-        role: user.role || (isStudent ? "STUDENT" : "TEACHER"),
-      };
-      if (user.branch) {
-        userDataToStore.branch = user.branch;
-      }
-      if (user.semester) {
-        userDataToStore.semester = user.semester;
-      }
+  /**
+   * Parse teacher response payload
+   */
+  const parseTeacherResponse = (result) => {
+    console.log("[DEBUG] Parsing TEACHER response...");
 
-      await AsyncStorage.setItem("authToken", token);
-      console.log(" Auth token stored");
-      await AsyncStorage.setItem("userData", JSON.stringify(userDataToStore));
-      console.log(" User data stored");
-      await AsyncStorage.setItem("userId", String(user.id));
-      console.log(" User ID stored");
-      const roleToStore = userDataToStore.role;
-      await AsyncStorage.setItem("userRole", roleToStore);
-      console.log(` User role stored: ${roleToStore}`);
-
-      console.log("[DEBUG] Verifying stored data...");
-      const storedToken = await AsyncStorage.getItem("authToken");
-      const storedUserData = await AsyncStorage.getItem("userData");
-      const storedRole = await AsyncStorage.getItem("userRole");
-
-      console.log(" Token verified:", storedToken ? "Present" : "Missing");
-      console.log(
-        " User data verified:",
-        storedUserData ? "Present" : "Missing",
-      );
-      console.log(" Role verified:", storedRole ? "Present" : "Missing");
-
-      return true;
-    } catch (error) {
-      console.error(" AsyncStorage Error:", error.message);
-      throw error;
+    if (!result.professor) {
+      throw new Error("Professor data not found in response");
     }
+
+    const professor = result.professor;
+
+    if (!professor.id || !professor.email) {
+      throw new Error("Missing required professor fields (id, email)");
+    }
+
+    const userData = {
+      id: professor.id,
+      name: professor.name || "Professor",
+      email: professor.email,
+      role: "TEACHER",
+    };
+
+    const classes = result.classes || [];
+
+    console.log("✅ Teacher response parsed successfully");
+    console.log(`Professor: ${userData.name}, Classes: ${classes.length}`);
+
+    return { userData, classes, token: result.token };
+  };
+
+  /**
+   * Parse student response payload
+   */
+  const parseStudentResponse = (result) => {
+    console.log("[DEBUG] Parsing STUDENT response...");
+
+    if (!result.user) {
+      throw new Error("User data not found in response");
+    }
+
+    const user = result.user;
+
+    if (!user.id || !user.email) {
+      throw new Error("Missing required user fields (id, email)");
+    }
+
+    const userData = {
+      id: user.id,
+      name: user.name || "Student",
+      email: user.email,
+      role: user.role || "student",
+      branch: user.branch || "",
+      semester: user.semester || 0,
+    };
+
+    const classes = user.classes || [];
+
+    console.log("✅ Student response parsed successfully");
+    console.log(`Student: ${userData.name}, Classes: ${classes.length}`);
+
+    return { userData, classes, token: result.token };
   };
 
   const handleLogin = async () => {
@@ -269,8 +278,9 @@ const LoginScreen = () => {
     setLoading(true);
 
     try {
+      // Determine API endpoint and role
       const apiUrl = isStudent ? API_ENDPOINTS.STUDENT : API_ENDPOINTS.TEACHER;
-      const roleType = isStudent ? "Student" : "Professor";
+      const roleType = isStudent ? "STUDENT" : "TEACHER";
 
       console.log("\n=== SENDING LOGIN REQUEST ===");
       console.log(`Role: ${roleType}`);
@@ -289,50 +299,70 @@ const LoginScreen = () => {
       });
 
       const result = await response.json();
-      console.log("result", result);
+
       console.log("=== RESPONSE RECEIVED ===");
       console.log("Status:", response.status);
-      console.log("Response:", result);
+      console.log("Response keys:", Object.keys(result));
 
+      // ✅ CHECK 1: Response status
       if (!response.ok) {
         throw new Error(result.message || `${roleType} login failed`);
       }
+
+      // ✅ CHECK 2: Response structure
       if (!result || typeof result !== "object") {
         throw new Error("Invalid response format from server");
       }
 
+      // ✅ CHECK 3: Token exists
       if (!result.token) {
         throw new Error("Server did not return authentication token");
       }
 
-      if (!result.user) {
-        throw new Error("Server did not return user data");
+      console.log("✅ Login validation passed");
+
+      // Parse response based on role
+      let userData, classes, token;
+
+      if (isStudent) {
+        const parsed = parseStudentResponse(result);
+        userData = parsed.userData;
+        classes = parsed.classes;
+        token = parsed.token;
+      } else {
+        const parsed = parseTeacherResponse(result);
+        userData = parsed.userData;
+        classes = parsed.classes;
+        token = parsed.token;
       }
-      console.log(" Login validation passed");
-      await saveToAsyncStorage(result.token, result.user);
-      await login(result.token, result.user);
 
-      console.log(" Login successful!");
+      // ✅ Call login from AuthContext
+      // This will:
+      // 1. Save to AsyncStorage
+      // 2. Update context state
+      // 3. Navigation happens in the root layout based on role
+      await login(token, userData, classes, userData.role);
 
-      Alert.alert(
-        "Login Successful",
-        `Welcome ${result.user.name || "User"}!`,
-        [
-          {
-            text: "OK",
-            onPress: () => {
-              setFormData({ email: "", password: "" });
-              if (isStudent) {
-                router.replace("/(students)/Student");
-              } else {
-                router.replace("/(teacher)/Classes");
-              }
-            },
+      console.log("✅ Login successful!");
+      console.log(`User: ${userData.name} (${userData.role})`);
+
+      Alert.alert("Login Successful", `Welcome ${userData.name}!`, [
+        {
+          text: "OK",
+          onPress: () => {
+            setFormData({ email: "", password: "" });
+
+            // Navigate based on role
+            if (isStudent) {
+              router.replace("/(students)/Student");
+            } else {
+              router.replace("/(teacher)/Classes");
+            }
           },
-        ],
-      );
+        },
+      ]);
     } catch (error) {
-      console.error(" Login Error:", error.message);
+      console.error("❌ Login Error:", error.message);
       const roleType = isStudent ? "Student" : "Professor";
       Alert.alert(
         "Login Failed",
@@ -380,6 +410,8 @@ const LoginScreen = () => {
                 Sign in to continue attendance
               </Text>
             </View>
+
+            {/* Role Toggle Slider */}
             <RoleToggle
               isStudent={isStudent}
               onToggle={() => setIsStudent(!isStudent)}
@@ -484,7 +516,7 @@ const styles = StyleSheet.create({
   },
   headerText: {
     fontSize: 32,
-    fontWeight: "600",
+    fontWeight: "700",
     color: COLORS.text,
     textAlign: "center",
     fontFamily: "OpenSans-Regular",
@@ -587,7 +619,7 @@ const styles = StyleSheet.create({
   },
   endpointText: {
     fontSize: 12,
-    color: "#000",
+    color: COLORS.primary,
     fontWeight: "600",
     marginLeft: 6,
     fontFamily: "OpenSans-Regular",

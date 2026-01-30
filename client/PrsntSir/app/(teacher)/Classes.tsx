@@ -1,3 +1,4 @@
+import { useAuth } from "@/context/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useEffect, useState } from "react";
@@ -56,26 +57,10 @@ const TEACHER_DATA = [
   },
 ];
 
-const STUDENT_SCHEDULE = [
-  {
-    id: "1",
-    subject: "Computer Science",
-    code: "CS101",
-    time: "09:00 AM",
-    location: "Room 304",
-    status: "Live",
-  },
-  {
-    id: "2",
-    subject: "Mathematics",
-    code: "MATH202",
-    time: "11:30 AM",
-    location: "Hall A",
-    status: "Upcoming",
-  },
-];
-
 const UserPage = () => {
+  const { user, classes } = useAuth();
+  const STUDENT_SCHEDULE = classes;
+
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState(null);
   const [selectedClass, setSelectedClass] = useState(null);
@@ -233,16 +218,16 @@ const UserPage = () => {
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>Dashboard</Text>
-            <Text style={styles.userName}>
-              {userRole === "teacher" ? "Prof. Anderson" : "Alex Johnson"}
-            </Text>
+            <Text style={styles.userName}>{user?.name}</Text>
             <View style={styles.roleBadge}>
               <Text style={styles.roleText}>{userRole?.toUpperCase()}</Text>
             </View>
           </View>
           <View style={styles.avatarContainer}>
             <Image
-              source={{ uri: "https://th.bing.com/th/id/R.c3631c652abe1185b1874da24af0b7c7?rik=gNdBCSMtHLUrQQ&pid=ImgRaw&r=0" }}
+              source={{
+                uri: "https://th.bing.com/th/id/R.c3631c652abe1185b1874da24af0b7c7?rik=gNdBCSMtHLUrQQ&pid=ImgRaw&r=0",
+              }}
               style={styles.avatar}
             />
           </View>

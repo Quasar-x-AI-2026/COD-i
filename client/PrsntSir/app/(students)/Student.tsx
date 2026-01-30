@@ -1,21 +1,10 @@
-// import { useAuth } from "@/context/AuthContext";
-// import { StyleSheet, Text, View } from "react-native";
-// const Student = () => {
-//   const { user } = useAuth();
-//   return (
-//     <View>
-//       <Text>{user?.name}</Text>
-//     </View>
-//   );
-// };
-// export default Student;
-// const styles = StyleSheet.create({});
 import { useAuth } from "@/context/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 import * as Calendar from "expo-calendar";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Platform,
   ScrollView,
@@ -37,39 +26,77 @@ const COLORS = {
   grayMedium: "#E0E0E0",
   textSecondary: "#757575",
   success: "#4CAF50",
+  danger: "#FF4D4D",
 };
 
 const StudentSchedule = ({ navigation }) => {
-  const { user } = useAuth();
-  const CLASSES = user.classes;
+  const { user, classes } = useAuth();
+
+  // ✅ FIX 1: Get classes from context (not user.classes)
+  const CLASSES = classes && Array.isArray(classes) ? classes : [];
+
   const [syncedClasses, setSyncedClasses] = useState([]);
   const [calendarId, setCalendarId] = useState(null);
-  const [sound, setSound] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
+  // ✅ FIX 2: Debug logging to see what we're getting
   useEffect(() => {
-    (async () => {
-      try {
-        const { status } = await Calendar.requestCalendarPermissionsAsync();
-        if (status !== "granted") {
-          Alert.alert(
-            "Permission needed",
-            "Calendar access is required to save schedules.",
-          );
-          return;
-        }
+    console.log("[DEBUG] StudentSchedule mounted");
+    console.log("User object:", user);
+    console.log("Classes from context:", classes);
+    console.log("Classes array:", CLASSES);
+    console.log("Classes count:", CLASSES.length);
 
-        setTimeout(() => {
-          initializeCalendar();
-        }, 500);
-      } catch (error) {
-        console.log("Permission error:", error);
-        Alert.alert("Error", "Failed to request permissions");
+    // ✅ FIX 3: Validate user is loaded
+    if (!user || !user.id) {
+      console.warn("⚠️ User not loaded yet");
+      setError("User data not loaded. Please login again.");
+      setLoading(false);
+      return;
+    }
+
+    if (CLASSES.length === 0) {
+      console.warn("⚠️ No classes found for this user");
+      setLoading(false);
+      return;
+    }
+
+    initializePermissions();
+  }, [user, classes]);
+
+  const initializePermissions = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      console.log("[DEBUG] Requesting calendar permissions...");
+
+      const { status } = await Calendar.requestCalendarPermissionsAsync();
+
+      if (status !== "granted") {
+        console.warn("⚠️ Calendar permission denied");
+        setError("Calendar permission is required to sync classes.");
+        setLoading(false);
+        return;
       }
-    })();
-  }, []);
+
+      console.log("✅ Calendar permission granted");
+
+      setTimeout(() => {
+        initializeCalendar();
+      }, 500);
+    } catch (error) {
+      console.error("❌ Permission error:", error);
+      setError("Failed to request calendar permissions.");
+      setLoading(false);
+    }
+  };
 
   const initializeCalendar = async () => {
     try {
+      console.log("[DEBUG] Initializing calendar...");
+
       let id;
 
       if (Platform.OS === "android") {
@@ -77,7 +104,8 @@ const StudentSchedule = ({ navigation }) => {
           Calendar.EntityTypes.EVENT,
         );
 
-        console.log("Available calendars count:", calendars.length);
+        console.log("Available calendars:", calendars.length);
+
         const writableCalendars = calendars.filter(
           (cal) =>
             cal.accessLevel === "owner" ||
@@ -85,25 +113,18 @@ const StudentSchedule = ({ navigation }) => {
         );
 
         console.log("Writable calendars:", writableCalendars.length);
+
         if (writableCalendars.length === 0) {
-          Alert.alert(
-            "No Writable Calendar",
-            "Please ensure you have at least one Google account added.",
-          );
+          setError("No writable calendar found. Please add a Google account.");
+          setLoading(false);
           return;
         }
+
         const preferredCalendar =
           writableCalendars.find((cal) => cal.source.type === "com.google") ||
           writableCalendars[0];
 
-        console.log(
-          "Preferred calendar:",
-          preferredCalendar.title,
-          preferredCalendar.source,
-        );
-
         const sourceId = preferredCalendar.source.id;
-        console.log("SourceId:", sourceId);
 
         const existingCalendar = calendars.find(
           (cal) => cal.title === "Class Schedule" && cal.source.id === sourceId,
@@ -119,13 +140,8 @@ const StudentSchedule = ({ navigation }) => {
 
           if (googleCalendar) {
             id = googleCalendar.id;
-            console.log(
-              "✅ Using existing Google Calendar:",
-              id,
-              googleCalendar.title,
-            );
+            console.log("✅ Using Google Calendar:", id, googleCalendar.title);
           } else {
-            console.log("Creating new calendar with sourceId:", sourceId);
             id = await Calendar.createCalendarAsync({
               title: "Class Schedule",
               name: "ClassSchedule",
@@ -134,17 +150,16 @@ const StudentSchedule = ({ navigation }) => {
               sourceId: sourceId,
               isVisible: true,
             });
-            console.log("Created calendar:", id);
+            console.log("✅ Created new calendar:", id);
           }
         }
       } else {
+        // iOS
         const defaultCalendarSource = await Calendar.getDefaultCalendarSource();
 
         if (!defaultCalendarSource) {
-          Alert.alert(
-            "Setup Required",
-            "Please set up a default calendar in your device settings.",
-          );
+          setError("Please set up a default calendar in device settings.");
+          setLoading(false);
           return;
         }
 
@@ -159,72 +174,191 @@ const StudentSchedule = ({ navigation }) => {
 
       setCalendarId(id);
       console.log("✅ Calendar initialized successfully:", id);
+      setLoading(false);
     } catch (error) {
-      console.log("❌ Calendar initialization error:", error);
-      Alert.alert("Calendar Error", `Error: ${error.message}`);
+      console.error("❌ Calendar initialization error:", error);
+      setError(`Calendar error: ${error.message}`);
+      setLoading(false);
     }
   };
 
   const getDateForTime = (timeString) => {
-    const date = new Date();
-    const [time, modifier] = timeString.split(" ");
-    let [hours, minutes] = time.split(":");
+    try {
+      const date = new Date();
 
-    if (hours === "12") hours = "00";
-    if (modifier === "PM") hours = parseInt(hours, 10) + 12;
+      if (!timeString || typeof timeString !== "string") {
+        console.warn("⚠️ Invalid timeString:", timeString);
+        return date;
+      }
 
-    date.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
-    return date;
+      const [time, modifier] = timeString.split(" ");
+
+      if (!time) {
+        console.warn("⚠️ Time part missing:", timeString);
+        return date;
+      }
+
+      let [hours, minutes] = time.split(":");
+
+      hours = parseInt(hours || "0", 10);
+      minutes = parseInt(minutes || "0", 10);
+
+      if (hours === 12) hours = 0;
+      if (modifier === "PM") hours = hours + 12;
+
+      date.setHours(hours, minutes, 0, 0);
+      return date;
+    } catch (error) {
+      console.error("❌ Error parsing time:", timeString, error);
+      return new Date();
+    }
   };
 
   const handleSync = async (classItem) => {
-    if (syncedClasses.includes(classItem.id)) {
-      Alert.alert("Already Synced", "This class is already in your calendar.");
-      return;
-    }
-
-    if (!calendarId) {
-      Alert.alert("Error", "Calendar not initialized. Please try again.");
-      return;
-    }
-
     try {
+      // ✅ FIX 4: Validate classItem
+      if (!classItem || !classItem.id) {
+        Alert.alert("Error", "Invalid class data");
+        return;
+      }
+
+      if (syncedClasses.includes(classItem.id)) {
+        Alert.alert(
+          "Already Synced",
+          "This class is already in your calendar.",
+        );
+        return;
+      }
+
+      if (!calendarId) {
+        Alert.alert("Error", "Calendar not initialized. Please try again.");
+        return;
+      }
+
+      console.log("[DEBUG] Syncing class:", classItem.code);
+
       const startDate = getDateForTime(classItem.timeString);
-      const endDate = new Date(
-        startDate.getTime() + classItem.durationMinutes * 60000,
-      );
+      const durationMinutes = classItem.durationMinutes || 60; // Default 60 min if not provided
+      const endDate = new Date(startDate.getTime() + durationMinutes * 60000);
+
+      console.log("Start:", startDate);
+      console.log("End:", endDate);
 
       // Create event with alarms
       const eventId = await Calendar.createEventAsync(calendarId, {
         title: `${classItem.code}: ${classItem.subject}`,
         startDate,
         endDate,
-        location: classItem.room,
-        notes: `Professor: ${classItem.professor}`,
+        location: classItem.room || "Unknown",
+        notes: `Professor: ${classItem.professor || "Unknown"}`,
         alarms: [
           { relativeOffset: -15 }, // 15 minutes before
-          { relativeOffset: -5 }, // 5 minutes before (for better reliability)
+          { relativeOffset: -5 }, // 5 minutes before
         ],
       });
+
+      console.log("✅ Event created:", eventId);
 
       setSyncedClasses([...syncedClasses, classItem.id]);
       Alert.alert(
         "Success!",
-        `Class added to calendar with 15-min & 5-min reminders!\n\nEvent ID: ${eventId}`,
+        `${classItem.code} added to calendar with reminders!`,
       );
     } catch (error) {
-      console.log("Sync error:", error);
-      Alert.alert("Error", `Sync failed: ${error.message}`);
+      console.error("❌ Sync error:", error);
+      Alert.alert("Error", `Failed to sync: ${error.message}`);
     }
   };
 
   const handleAttendanceNavigation = () => {
-    if (router) {
-      router.push("/(students)/Attendence");
-    } else {
-      Alert.alert("Navigation", "Attendance page navigation not configured");
+    try {
+      if (router) {
+        router.push("/(students)/Attendence");
+      } else {
+        Alert.alert("Error", "Navigation not configured");
+      }
+    } catch (error) {
+      console.error("Navigation error:", error);
+      Alert.alert("Error", "Failed to navigate to attendance");
     }
   };
+
+  // ✅ FIX 5: Handle loading state
+  if (loading) {
+    return (
+      <SafeAreaProvider>
+        <SafeAreaView style={styles.safeArea}>
+          <View style={styles.centerContainer}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+            <Text style={styles.loadingText}>Initializing calendar...</Text>
+          </View>
+        </SafeAreaView>
+      </SafeAreaProvider>
+    );
+  }
+
+  // ✅ FIX 6: Handle error state
+  if (error) {
+    return (
+      <SafeAreaProvider>
+        <SafeAreaView style={styles.safeArea}>
+          <View style={styles.centerContainer}>
+            <Ionicons name="alert-circle" size={48} color={COLORS.danger} />
+            <Text style={styles.errorTitle}>Error</Text>
+            <Text style={styles.errorMessage}>{error}</Text>
+            <TouchableOpacity
+              style={styles.retryBtn}
+              onPress={initializePermissions}
+            >
+              <Text style={styles.retryBtnText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </SafeAreaProvider>
+    );
+  }
+
+  // ✅ FIX 7: Handle no classes state
+  if (!user) {
+    return (
+      <SafeAreaProvider>
+        <SafeAreaView style={styles.safeArea}>
+          <View style={styles.centerContainer}>
+            <Text style={styles.errorTitle}>Not Logged In</Text>
+            <Text style={styles.errorMessage}>
+              Please login to view your classes
+            </Text>
+          </View>
+        </SafeAreaView>
+      </SafeAreaProvider>
+    );
+  }
+
+  if (CLASSES.length === 0) {
+    return (
+      <SafeAreaProvider>
+        <SafeAreaView style={styles.safeArea}>
+          <View style={styles.header}>
+            <View>
+              <Text style={styles.headerTitle}>My Classes</Text>
+              <Text style={styles.headerSub}>No classes assigned</Text>
+            </View>
+          </View>
+          <View style={styles.centerContainer}>
+            <Ionicons
+              name="calendar-outline"
+              size={48}
+              color={COLORS.textSecondary}
+            />
+            <Text style={styles.emptyTitle}>No Classes</Text>
+            <Text style={styles.emptyMessage}>
+              You don't have any classes assigned yet
+            </Text>
+          </View>
+        </SafeAreaView>
+      </SafeAreaProvider>
+    );
+  }
 
   return (
     <SafeAreaProvider>
@@ -234,7 +368,9 @@ const StudentSchedule = ({ navigation }) => {
         <View style={styles.header}>
           <View>
             <Text style={styles.headerTitle}>My Classes</Text>
-            <Text style={styles.headerSub}>Sync to Calendar for Alarms</Text>
+            <Text style={styles.headerSub}>
+              {CLASSES.length} class{CLASSES.length !== 1 ? "es" : ""}
+            </Text>
           </View>
           <TouchableOpacity
             style={styles.attendanceBtn}
@@ -252,15 +388,21 @@ const StudentSchedule = ({ navigation }) => {
 
         <ScrollView contentContainerStyle={styles.scrollContent}>
           {CLASSES.map((item) => {
+            if (!item || !item.id) {
+              console.warn("Invalid class item:", item);
+              return null;
+            }
+
             const isSynced = syncedClasses.includes(item.id);
+
             return (
               <View key={item.id} style={styles.classCard}>
                 <View style={styles.timeContainer}>
                   <Text style={styles.timeText}>
-                    {item.timeString.split(" ")[0]}
+                    {item.timeString?.split(" ")[0] || "N/A"}
                   </Text>
                   <Text style={styles.meridiem}>
-                    {item.timeString.split(" ")[1]}
+                    {item.timeString?.split(" ")[1] || ""}
                   </Text>
                   <View style={styles.timelineLine} />
                 </View>
@@ -272,7 +414,7 @@ const StudentSchedule = ({ navigation }) => {
                   ]}
                 >
                   <View style={styles.cardHeader}>
-                    <Text style={styles.codeText}>{item.code}</Text>
+                    <Text style={styles.codeText}>{item.code || "N/A"}</Text>
                     {isSynced && (
                       <View style={styles.syncedBadge}>
                         <Ionicons
@@ -285,13 +427,18 @@ const StudentSchedule = ({ navigation }) => {
                     )}
                   </View>
 
-                  <Text style={styles.subjectText}>{item.subject}</Text>
-                  <Text style={styles.detailText}>
-                    <Ionicons name="location-outline" size={14} /> {item.room}
+                  <Text style={styles.subjectText}>
+                    {item.subject || "Unknown Subject"}
                   </Text>
+
                   <Text style={styles.detailText}>
-                    <Ionicons name="person-outline" size={14} />{" "}
-                    {item.professor}
+                    <Ionicons name="location-outline" size={14} />
+                    {" " + (item.room || "N/A")}
+                  </Text>
+
+                  <Text style={styles.detailText}>
+                    <Ionicons name="person-outline" size={14} />
+                    {" " + (item.professor || "N/A")}
                   </Text>
 
                   <TouchableOpacity
@@ -330,6 +477,12 @@ export default StudentSchedule;
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.background },
+  centerContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 24,
+  },
   header: {
     padding: 24,
     backgroundColor: COLORS.white,
@@ -355,11 +508,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     color: COLORS.text,
-  },
-  settingsBtn: {
-    padding: 8,
-    backgroundColor: COLORS.grayLight,
-    borderRadius: 12,
   },
   scrollContent: { padding: 24, paddingBottom: 50 },
   classCard: { flexDirection: "row", marginBottom: 24 },
@@ -433,4 +581,50 @@ const styles = StyleSheet.create({
   syncBtnInactive: { backgroundColor: COLORS.primary },
   syncBtnActive: { backgroundColor: COLORS.text },
   syncBtnText: { fontSize: 14, fontWeight: "700", color: COLORS.text },
+
+  // Error/Empty states
+  loadingText: {
+    fontSize: 16,
+    color: COLORS.textSecondary,
+    marginTop: 16,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: COLORS.text,
+    marginTop: 16,
+    textAlign: "center",
+  },
+  errorMessage: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    marginTop: 8,
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: COLORS.text,
+    marginTop: 16,
+    textAlign: "center",
+  },
+  emptyMessage: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    marginTop: 8,
+    textAlign: "center",
+  },
+  retryBtn: {
+    marginTop: 24,
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    backgroundColor: COLORS.primary,
+    borderRadius: 12,
+  },
+  retryBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: COLORS.text,
+  },
 });
