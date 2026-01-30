@@ -21,3 +21,6 @@ added face rec model + alignment infra
 Harsh-
 Adding Onboarding Page
 Makign the Expo App Smooth
+
+kaustuk:
+ added embedding_model file
