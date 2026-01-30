@@ -15,45 +15,48 @@ class FaceRegistrationOrchestrator:
         self.r = retinaface
         self.e = embedder
 
+    # orchestrator.py - filters out None, keeps same output format
     def run(self, image_paths: list[str]) -> Dict[str, Any]:
         """
-        Process multiple images of the same person for registration.
-        
-        Args:
-            image_paths: list of paths to student images (len = 2 or 3)
+        Process multiple images, use only the frontal one.
         
         Returns:
             {
-              "centroid": np.ndarray (512,),
-              "embeddings": np.ndarray (N, 512),
-              "num_faces": int
+            "centroid": np.ndarray (512,) - Frontal face embedding
+            "embeddings": np.ndarray (1, 512) - Same as centroid
+            "num_faces": int - Always 1
             }
         """
         
         face_tensors = []
         
         for path in image_paths:
-            tensors = self.r.return_tensors(path)  # (1, 3, 112, 112)
-            face_tensors.append(tensors)
+            tensors = self.r.return_tensors(path)  # Returns None if not frontal
+            
+            if tensors is not None:
+                face_tensors.append(tensors)
         
-        # Concatenate along batch dimension: (N, 3, 112, 112)
-        faces = np.concatenate(face_tensors, axis=0).astype(np.float32)
+        if len(face_tensors) == 0:
+            raise ValueError("No frontal face found in any of the provided images")
         
-        # Convert from NCHW to NHWC: (N, 112, 112, 3)
-        faces_nhwc = np.transpose(faces, (0, 2, 3, 1))
+        # Use only the first frontal face found
+        frontal_face = face_tensors[0]  # (1, 3, 112, 112)
         
-        # Generate embeddings: (N, 512), L2-normalized
-        embeddings = self.e.embed(faces_nhwc)
+        # Convert to NHWC
+        face_nhwc = np.transpose(frontal_face, (0, 2, 3, 1))  # (1, 112, 112, 3)
         
-        # Check consistency across images
-        if not embeddings_consistent(embeddings):
+        # Generate embedding
+        embedding = self.e.embed(face_nhwc)  # (1, 512)
+        
+        # Check consistency (always True for single image)
+        if not embeddings_consistent(embedding):
             print("WARNING: Embeddings are not consistent across provided images.")
         
-        # Aggregate into single centroid: (512,), L2-normalized
-        centroid = aggregate_embeddings(embeddings)
+        # Return in same format
+        centroid = embedding[0]  # (512,)
         
         return {
-            "centroid": centroid,
-            "embeddings": embeddings,
-            "num_faces": embeddings.shape[0]
+            "centroid": centroid,        # (512,) - The frontal face embedding
+            "embeddings": embedding,     # (1, 512) - Same embedding
+            "num_faces": embedding.shape[0]  # 1
         }

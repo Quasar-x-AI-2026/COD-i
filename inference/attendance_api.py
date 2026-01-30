@@ -160,9 +160,9 @@ def match_embedding_to_students(
         #similarity = float(np.dot(embedding, centroid))
         # Use cosine + Euclidean hybrid
         
-        similarity_cosine = np.dot(embedding, centroid)
-        similarity_euclidean = 1 / (1 + np.linalg.norm(embedding - centroid))
-        similarity = 0.7 * similarity_cosine + 0.3 * similarity_euclidean
+        similarity = float(np.dot(embedding, centroid))
+#        similarity_euclidean = 1 / (1 + np.linalg.norm(embedding - centroid))
+#        similarity = 0.7 * similarity_cosine + 0.3 * similarity_euclidean
         
         if similarity > best_similarity:
             best_similarity = similarity
