@@ -260,6 +260,7 @@ export type ClassSessionOrderByWithRelationInput = {
 
 export type ClassSessionWhereUniqueInput = Prisma.AtLeast<{
   id?: number
+  subjectId_teacherId_sessionDate_startTime?: Prisma.ClassSessionSubjectIdTeacherIdSessionDateStartTimeCompoundUniqueInput
   AND?: Prisma.ClassSessionWhereInput | Prisma.ClassSessionWhereInput[]
   OR?: Prisma.ClassSessionWhereInput[]
   NOT?: Prisma.ClassSessionWhereInput | Prisma.ClassSessionWhereInput[]
@@ -272,7 +273,7 @@ export type ClassSessionWhereUniqueInput = Prisma.AtLeast<{
   subject?: Prisma.XOR<Prisma.SubjectScalarRelationFilter, Prisma.SubjectWhereInput>
   teacher?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   attendance?: Prisma.AttendanceListRelationFilter
-}, "id">
+}, "id" | "subjectId_teacherId_sessionDate_startTime">
 
 export type ClassSessionOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
@@ -379,6 +380,13 @@ export type ClassSessionListRelationFilter = {
 
 export type ClassSessionOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
+}
+
+export type ClassSessionSubjectIdTeacherIdSessionDateStartTimeCompoundUniqueInput = {
+  subjectId: number
+  teacherId: number
+  sessionDate: Date | string
+  startTime: Date | string
 }
 
 export type ClassSessionCountOrderByAggregateInput = {

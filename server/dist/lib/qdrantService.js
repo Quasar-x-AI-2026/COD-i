@@ -26,8 +26,39 @@ export async function getVectorByPointId(pointId) {
         with_vector: true,
         with_payload: false,
     });
-    if (!result || result.length === 0) {
+    if (!result || result.length === 0 || !result[0].vector) {
         throw new Error(`Vector not found for pointId ${pointId}`);
     }
-    return result[0].vector;
+    const rawVector = result[0].vector;
+    /**
+     * Case 1: vector is number[]
+     */
+    if (Array.isArray(rawVector) && typeof rawVector[0] === "number") {
+        return rawVector;
+    }
+    /**
+     * Case 2: vector is number[][]
+     */
+    if (Array.isArray(rawVector) &&
+        Array.isArray(rawVector[0]) &&
+        typeof rawVector[0][0] === "number") {
+        return rawVector[0];
+    }
+    /**
+     * Case 3: vector is named / object-based (rare but supported by Qdrant)
+     * Example: { default: number[] }
+     */
+    if (typeof rawVector === "object") {
+        const firstKey = Object.keys(rawVector)[0];
+        const value = rawVector[firstKey];
+        if (Array.isArray(value) && typeof value[0] === "number") {
+            return value;
+        }
+        if (Array.isArray(value) &&
+            Array.isArray(value[0]) &&
+            typeof value[0][0] === "number") {
+            return value[0];
+        }
+    }
+    throw new Error(`Unsupported vector format for pointId ${pointId}`);
 }

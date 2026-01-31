@@ -15,6 +15,7 @@ export async function professorLogin(req: Request, res: Response) {
  
 
 export async function markAttendance(req: Request, res: Response) {
+  console.log("body:",req.body)
   try {
     const sessionId = Number(req.body.sessionId);
     const files = req.files as Express.Multer.File[];

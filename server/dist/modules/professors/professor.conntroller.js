@@ -10,6 +10,7 @@ export async function professorLogin(req, res) {
     }
 }
 export async function markAttendance(req, res) {
+    console.log("body:", req.body);
     try {
         const sessionId = Number(req.body.sessionId);
         const files = req.files;

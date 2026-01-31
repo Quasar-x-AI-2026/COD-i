@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { upload } from "../../utlils/multer.js";
-import { login, register } from "./student.controllers.js";
+import { getStudentAttendance, login, register } from "./student.controllers.js";
+import { requireAuth } from "./student.middlewares.js";
 const router = Router();
 router.post("/register", upload.fields([
     { name: "frontFace", maxCount: 1 },
@@ -8,4 +9,5 @@ router.post("/register", upload.fields([
     { name: "rightFace", maxCount: 1 },
 ]), register);
 router.post("/login", login);
+router.get("/:studentId/attendance", requireAuth, getStudentAttendance);
 export default router;

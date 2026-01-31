@@ -383,49 +383,99 @@ export async function loginStudent(data: {
   email: string;
   password: string;
 }) {
+  /* ---------------- FETCH USER ---------------- */
 
   const user = await prisma.user.findUnique({
     where: { email: data.email },
     include: {
-      roles: { include: { role: true } },
+      roles: {
+        include: { role: true },
+      },
       enrollments: {
         include: {
           subject: {
             include: {
               sessions: {
-                include: { teacher: true }
-              }
-            }
-          }
-        }
-      }
-    }
+                include: {
+                  teacher: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   });
 
-  if (!user) throw new Error("Invalid user or password");
+  if (!user) {
+    throw new Error("Invalid user or password");
+  }
 
-  const isValid = await verifyPassword(data.password, user.hashPassword);
-  if (!isValid) throw new Error("Invalid user or password");
+  const isValid = await verifyPassword(
+    data.password,
+    user.hashPassword
+  );
 
-  const role = user.roles[0]?.role.name ?? "student";
+  if (!isValid) {
+    throw new Error("Invalid user or password");
+  }
+
+  const role = user.roles[0]?.role.name ?? "STUDENT";
   const token = signToken({ id: user.id, role });
 
-  const classes = user.enrollments.flatMap(e =>
-    e.subject.sessions.map(s => ({
-      id: s.id.toString(),
-      subject: e.subject.name,
-      code: e.subject.subjectCode,
-      professor: s.teacher.name,
-      room: s.room ?? "N/A",
-      timeString: s.startTime.toLocaleTimeString("en-IN", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true
-      }),
-      durationMinutes:
-        (s.endTime.getTime() - s.startTime.getTime()) / 60000
-    }))
+  /* ---------------- IST TODAY RANGE ---------------- */
+
+  const now = new Date();
+
+  // IST offset = +5:30
+  const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+
+  const startOfTodayIST = new Date(
+    new Date(now.getTime() + IST_OFFSET_MS)
+      .setHours(0, 0, 0, 0) - IST_OFFSET_MS
   );
+
+  const startOfTomorrowIST = new Date(startOfTodayIST);
+  startOfTomorrowIST.setDate(startOfTomorrowIST.getDate() + 1);
+
+  /* ---------------- BUILD TODAY'S CLASSES ---------------- */
+
+  const classes = user.enrollments.flatMap(enrollment =>
+    enrollment.subject.sessions
+      .filter(session => {
+        return (
+          session.sessionDate >= startOfTodayIST &&
+          session.sessionDate < startOfTomorrowIST
+        );
+      })
+      .map(session => {
+        const startTime = session.startTime;
+        const endTime = session.endTime;
+
+        return {
+          id: session.id.toString(),
+          subject: enrollment.subject.name,
+          code: enrollment.subject.subjectCode,
+          professor: session.teacher.name,
+          room: session.room ?? "N/A",
+
+          timeString: `${startTime.toLocaleTimeString("en-IN", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true,
+          })} - ${endTime.toLocaleTimeString("en-IN", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true,
+          })}`,
+
+          durationMinutes:
+            (endTime.getTime() - startTime.getTime()) / 60000,
+        };
+      })
+  );
+
+  /* ---------------- RESPONSE ---------------- */
 
   return {
     token,
@@ -436,7 +486,95 @@ export async function loginStudent(data: {
       role,
       branch: user.branch,
       semester: user.semester,
-      classes
-    }
+      classes,
+    },
+  };
+}
+
+
+
+
+export async function getStudentAttendanceService(studentId: number) {
+  console.log("📊 Fetching attendance for student:", studentId);
+
+  /* ------------------ STUDENT BASIC INFO ------------------ */
+
+  const student = await prisma.user.findUnique({
+    where: { id: studentId },
+    select: {
+      id: true,
+      name: true,
+      rollNumber: true,
+      enrollments: {
+        include: {
+          subject: true,
+        },
+      },
+    },
+  });
+
+  if (!student) {
+    throw new Error("Student not found");
+  }
+
+  /* ------------------ PER SUBJECT ATTENDANCE ------------------ */
+
+  const subjectStats = [];
+
+  let overallAttended = 0;
+  let overallTotal = 0;
+
+  for (const enrollment of student.enrollments) {
+    const subject = enrollment.subject;
+
+    // total sessions conducted for this subject
+    const totalClasses = await prisma.classSession.count({
+      where: { subjectId: subject.id },
+    });
+
+    // sessions attended by this student
+    const attendedClasses = await prisma.attendance.count({
+      where: {
+        studentId,
+        status: "PRESENT",
+        session: {
+          subjectId: subject.id,
+        },
+      },
+    });
+
+    const percentage =
+      totalClasses === 0
+        ? 0
+        : Number(((attendedClasses / totalClasses) * 100).toFixed(2));
+
+    overallAttended += attendedClasses;
+    overallTotal += totalClasses;
+
+    subjectStats.push({
+      subjectId: subject.id,
+      code: subject.subjectCode,
+      name: subject.name,
+      totalClasses,
+      attendedClasses,
+      attendancePercentage: percentage,
+    });
+  }
+
+  /* ------------------ OVERALL ATTENDANCE ------------------ */
+
+  const overallAttendance =
+    overallTotal === 0
+      ? 0
+      : Number(((overallAttended / overallTotal) * 100).toFixed(2));
+
+  return {
+    student: {
+      id: student.id,
+      name: student.name,
+      rollNumber: student.rollNumber,
+    },
+    subjects: subjectStats,
+    overallAttendance,
   };
 }

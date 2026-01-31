@@ -3,7 +3,6 @@ import { uploadImage } from "../../utlils/cloudinary.js";
 import { signToken } from "../../utlils/jwt.js";
 export async function professorLoginService(data) {
     const { email, password } = data;
-    /* ------------------ USER CHECK ------------------ */
     const professor = await prisma.user.findUnique({
         where: { email },
         include: {
@@ -17,7 +16,6 @@ export async function professorLoginService(data) {
         throw new Error("User is not a professor");
     if (professor.hashPassword !== password)
         throw new Error("Invalid credentials");
-    /* ------------------ FETCH SESSIONS ------------------ */
     const sessions = await prisma.classSession.findMany({
         where: { teacherId: professor.id },
         include: {
@@ -28,52 +26,59 @@ export async function professorLoginService(data) {
         orderBy: { startTime: "asc" }
     });
     const now = new Date();
+    const todayStr = now.toDateString();
     let activeSessionId = null;
     const classes = sessions.map(session => {
-        const isToday = session.sessionDate.toDateString() === now.toDateString();
+        const isToday = session.sessionDate.toDateString() === todayStr;
         const isOngoing = isToday &&
             now >= session.startTime &&
             now <= session.endTime;
-        if (isOngoing && !activeSessionId) {
+        if (isOngoing && activeSessionId === null) {
             activeSessionId = session.id;
+        }
+        let status;
+        if (isOngoing) {
+            status = "ONGOING";
+        }
+        else if (session.startTime > now) {
+            status = "UPCOMING";
+        }
+        else {
+            status = "COMPLETED";
         }
         return {
             sessionId: session.id,
             subjectId: session.subjectId,
             code: session.subject.subjectCode,
             name: session.subject.name,
-            startTime: session.startTime.toLocaleTimeString([], {
+            startTime: session.startTime.toLocaleTimeString("en-IN", {
                 hour: "2-digit",
-                minute: "2-digit"
+                minute: "2-digit",
+                hour12: true
             }),
-            endTime: session.endTime.toLocaleTimeString([], {
+            endTime: session.endTime.toLocaleTimeString("en-IN", {
                 hour: "2-digit",
-                minute: "2-digit"
+                minute: "2-digit",
+                hour12: true
             }),
             location: session.room ?? "TBA",
             students: session.subject.enrollments.length,
-            status: isOngoing
-                ? "ONGOING"
-                : session.sessionDate > now
-                    ? "UPCOMING"
-                    : "COMPLETED"
+            status
         };
     });
-    /* ------------------ TOKEN ------------------ */
     const token = signToken({
         id: professor.id,
         role: "TEACHER"
     });
-    const role = professor.roles[0]?.role.name ?? "TEACHER";
     return {
         token,
         professor: {
             id: professor.id,
             name: professor.name,
             email: professor.email,
-            role
+            role: "TEACHER"
         },
-        activeSessionId, // ⭐ THIS IS WHAT YOU WANTED
+        activeSessionId, // 🔥 frontend uses this directly
         classes
     };
 }
@@ -81,6 +86,9 @@ const MODEL_URL = "http://192.168.9.18:8001/api/v1/attendance";
 import fs from "fs";
 import { markAttendance } from "../../lib/axios.js";
 import { getVectorByPointId } from "../../lib/qdrantService.js";
+/* ---------------------------------- */
+/* MARK ATTENDANCE SERVICE             */
+/* ---------------------------------- */
 export async function markAttendanceService({ sessionId, files, }) {
     console.log("🟢 Mark Attendance Started");
     console.log("📌 Session ID:", sessionId);
@@ -95,11 +103,16 @@ export async function markAttendanceService({ sessionId, files, }) {
         }
     }
     finally {
-        for (const file of files)
-            fs.unlinkSync(file.path);
+        for (const file of files) {
+            if (fs.existsSync(file.path))
+                fs.unlinkSync(file.path);
+        }
+    }
+    if (image_urls.length === 0) {
+        throw new Error("No classroom images uploaded");
     }
     /* ---------------------------------- */
-    /* 2️⃣ Load session + enrolled users  */
+    /* 2️⃣ Fetch session + enrollments    */
     /* ---------------------------------- */
     const session = await prisma.classSession.findUnique({
         where: { id: sessionId },
@@ -117,54 +130,83 @@ export async function markAttendanceService({ sessionId, files, }) {
             },
         },
     });
-    if (!session)
+    if (!session) {
         throw new Error("Session not found");
+    }
+    console.log("📘 Subject:", session.subject.name);
+    console.log("👨‍🎓 Total enrolled:", session.subject.enrollments.length);
     /* ---------------------------------- */
-    /* 3️⃣ Build students payload         */
+    /* 3️⃣ DAY RANGE (IST SAFE)            */
     /* ---------------------------------- */
-    const students = [];
+    const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+    const base = new Date(session.sessionDate.getTime() + IST_OFFSET_MS);
+    const startOfDay = new Date(base);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(startOfDay);
+    endOfDay.setDate(endOfDay.getDate() + 1);
+    // Convert back to UTC
+    startOfDay.setTime(startOfDay.getTime() - IST_OFFSET_MS);
+    endOfDay.setTime(endOfDay.getTime() - IST_OFFSET_MS);
+    /* ---------------------------------- */
+    /* 4️⃣ SUBJECT-DAY GUARD (🔥 KEY FIX) */
+    /* ---------------------------------- */
+    const alreadyMarkedForSubjectToday = await prisma.attendance.findFirst({
+        where: {
+            session: {
+                subjectId: session.subjectId,
+                sessionDate: {
+                    gte: startOfDay,
+                    lt: endOfDay,
+                },
+            },
+        },
+    });
+    if (alreadyMarkedForSubjectToday) {
+        throw new Error("Attendance already marked for this subject today");
+    }
+    /* ---------------------------------- */
+    /* 5️⃣ Build ML students payload      */
+    /* ---------------------------------- */
+    const studentsForML = [];
     for (const e of session.subject.enrollments) {
         const student = e.student;
         const embedding = student.faceEmbedding;
         if (!embedding?.qdrantPointId)
             continue;
         const vector = await getVectorByPointId(embedding.qdrantPointId);
-        students.push({
+        studentsForML.push({
             student_id: String(student.id),
             name: student.name,
             roll_number: student.rollNumber,
             embedding: vector,
         });
     }
-    if (students.length === 0)
-        throw new Error("No students have embeddings");
+    if (studentsForML.length === 0) {
+        throw new Error("No enrolled students have embeddings");
+    }
     /* ---------------------------------- */
-    /* 4️⃣ Send payload to ML server      */
+    /* 6️⃣ Call ML server                 */
     /* ---------------------------------- */
     const payload = {
         image_urls,
-        students,
+        students: studentsForML,
         similarity_threshold: 0.6,
     };
-    const response = await markAttendance.post("", payload);
-    const { present_students, absent_students, } = response.data;
+    const response = (await markAttendance.post("", payload));
+    const presentStudents = response.data.present_students;
     /* ---------------------------------- */
-    /* 5️⃣ SAVE ATTENDANCE (TRANSACTION)  */
+    /* 7️⃣ Compute ABSENT students        */
+    /* ---------------------------------- */
+    const presentIds = new Set(presentStudents.map(s => Number(s.student_id)));
+    const allEnrolledIds = session.subject.enrollments.map(e => e.studentId);
+    const absentIds = allEnrolledIds.filter(id => !presentIds.has(id));
+    /* ---------------------------------- */
+    /* 8️⃣ Save attendance (TRANSACTION)  */
     /* ---------------------------------- */
     await prisma.$transaction(async (tx) => {
-        for (const s of present_students) {
-            await tx.attendance.upsert({
-                where: {
-                    sessionId_studentId: {
-                        sessionId,
-                        studentId: Number(s.student_id),
-                    },
-                },
-                update: {
-                    status: "PRESENT",
-                    confidenceScore: s.confidence,
-                },
-                create: {
+        for (const s of presentStudents) {
+            await tx.attendance.create({
+                data: {
                     sessionId,
                     studentId: Number(s.student_id),
                     status: "PRESENT",
@@ -172,25 +214,24 @@ export async function markAttendanceService({ sessionId, files, }) {
                 },
             });
         }
-        for (const s of absent_students) {
-            await tx.attendance.upsert({
-                where: {
-                    sessionId_studentId: {
-                        sessionId,
-                        studentId: Number(s.student_id),
-                    },
-                },
-                update: { status: "ABSENT" },
-                create: {
+        for (const studentId of absentIds) {
+            await tx.attendance.create({
+                data: {
                     sessionId,
-                    studentId: Number(s.student_id),
+                    studentId,
                     status: "ABSENT",
                 },
             });
         }
     });
+    /* ---------------------------------- */
+    /* 9️⃣ Response                       */
+    /* ---------------------------------- */
     return {
         message: "Attendance marked successfully",
-        stats: response.data,
+        subject: session.subject.name,
+        date: session.sessionDate,
+        presentCount: presentStudents.length,
+        absentCount: absentIds.length,
     };
 }

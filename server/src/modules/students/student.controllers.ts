@@ -1,6 +1,6 @@
 import { verifyPassword } from "../../utlils/hash.js";
 import { signToken } from "../../utlils/jwt.js";
-import { loginStudent, registerStudent } from "./student.services.js";
+import { getStudentAttendanceService, loginStudent, registerStudent } from "./student.services.js";
 import type { Request,Response } from "express";
 export async function register(req: Request, res: Response) {
   try {
@@ -44,4 +44,13 @@ export async function login(req: Request, res: Response) {
     })
   }
 }
+
+
+export const getStudentAttendance = async (req:Request, res:Response) => {
+  const studentId = Number(req.params.studentId);
+
+  const data = await getStudentAttendanceService(studentId);
+
+  res.json(data);
+};
 

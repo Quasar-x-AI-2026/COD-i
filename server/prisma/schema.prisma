@@ -84,11 +84,13 @@ model ClassSession {
   endTime     DateTime
   room        String?
 
-
   subject    Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   teacher    User    @relation("TeacherSessions", fields: [teacherId], references: [id], onDelete: Cascade)
   attendance Attendance[]
+
+  @@unique([subjectId, teacherId, sessionDate, startTime])
 }
+
 
 model Attendance {
   id              Int      @id @default(autoincrement())

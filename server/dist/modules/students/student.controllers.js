@@ -1,4 +1,4 @@
-import { loginStudent, registerStudent } from "./student.services.js";
+import { getStudentAttendanceService, loginStudent, registerStudent } from "./student.services.js";
 export async function register(req, res) {
     try {
         const result = await registerStudent({
@@ -35,3 +35,8 @@ export async function login(req, res) {
         });
     }
 }
+export const getStudentAttendance = async (req, res) => {
+    const studentId = Number(req.params.studentId);
+    const data = await getStudentAttendanceService(studentId);
+    res.json(data);
+};
