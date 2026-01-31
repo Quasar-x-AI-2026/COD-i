@@ -30,9 +30,9 @@ class MultiFaceExtractor:
         self,
         model_path: str = MODEL_PATH_FACEREC,
         device: str = "cpu",
-        det_thresh: float = 0.6,
+        det_thresh: float = 0.4,
         max_faces: int = None,  # None = return all faces
-        debug: bool = False
+        debug: bool = True
     ):
         self.reader = PhotoFrameReader()
         self.det_thresh = det_thresh
