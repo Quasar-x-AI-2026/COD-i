@@ -1,3 +1,4 @@
+import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "expo-router";
 import {
   AlertCircle,
@@ -11,6 +12,7 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   RefreshControl,
   ScrollView,
   StatusBar,
@@ -35,59 +37,128 @@ const COLORS = {
   shadow: "rgba(0, 0, 0, 0.1)",
 };
 
-const fetchSubjectData = () => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve([
-        {
-          id: 1,
-          name: "Computer Science",
-          code: "CS101",
-          total: 45,
-          present: 38,
-          absent: 7,
+const API_BASE_URL = "http://192.168.9.130:3000";
+
+/**
+ * Fetch attendance data from API
+ * @param {number} studentId - Student ID
+ * @param {string} token - Bearer token
+ * @returns {Promise<Array>} Array of subject attendance data
+ */
+const fetchSubjectData = async (studentId, token) => {
+  try {
+    console.log(`[API] Fetching attendance for student ID: ${studentId}`);
+
+    const response = await fetch(
+      `${API_BASE_URL}/student/${studentId}/attendance`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
-        {
-          id: 2,
-          name: "Mathematics II",
-          code: "MATH202",
-          total: 40,
-          present: 30,
-          absent: 10,
-        },
-        {
-          id: 3,
-          name: "Physics Lab",
-          code: "PHY105",
-          total: 20,
-          present: 18,
-          absent: 2,
-        },
-        {
-          id: 4,
-          name: "Data Structures",
-          code: "CS201",
-          total: 35,
-          present: 25,
-          absent: 10,
-        },
-      ]);
-    }, 1000);
-  });
+      },
+    );
+
+    console.log(`[API] Response status: ${response.status}`);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[API] Error response: ${errorText}`);
+      throw new Error(`Failed to fetch attendance: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log(`[API] Received data:`, JSON.stringify(data, null, 2));
+
+    if (Array.isArray(data)) {
+      return data.map((item) => ({
+        id: item.id || item.subjectId,
+        name: item.name || item.subjectName || item.subject,
+        code: item.code || item.subjectCode,
+        total: item.total || item.totalClasses || 0,
+        present: item.present || item.presentCount || 0,
+        absent: item.absent || item.absentCount || 0,
+      }));
+    } else if (data.subjects && Array.isArray(data.subjects)) {
+      return data.subjects.map((item) => ({
+        id: item.id || item.subjectId,
+        name: item.name || item.subjectName || item.subject,
+        code: item.code || item.subjectCode,
+        total: item.total || item.totalClasses || 0,
+        present: item.present || item.presentCount || 0,
+        absent: item.absent || item.absentCount || 0,
+      }));
+    } else if (data.attendance && Array.isArray(data.attendance)) {
+      return data.attendance.map((item) => ({
+        id: item.id || item.subjectId,
+        name: item.name || item.subjectName || item.subject,
+        code: item.code || item.subjectCode,
+        total: item.total || item.totalClasses || 0,
+        present: item.present || item.presentCount || 0,
+        absent: item.absent || item.absentCount || 0,
+      }));
+    } else {
+      console.error("[API] Unexpected data structure:", data);
+      return [];
+    }
+  } catch (error) {
+    console.error("[API] Fetch error:", error);
+    throw error;
+  }
 };
 
 const Attendance = () => {
   const router = useRouter();
+  const { user, token } = useAuth();
   const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const loadData = async () => {
     try {
-      const data = await fetchSubjectData();
+      if (!user?.id) {
+        console.error("[Attendance] No user ID found");
+        Alert.alert(
+          "Error",
+          "User information not found. Please log in again.",
+        );
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
+      if (!token) {
+        console.error("[Attendance] No auth token found");
+        Alert.alert(
+          "Error",
+          "Authentication token not found. Please log in again.",
+        );
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
+      console.log(`[Attendance] Loading data for user ID: ${user.id}`);
+      const data = await fetchSubjectData(user.id, token);
+      console.log(`[Attendance] Loaded ${data.length} subjects`);
       setSubjects(data);
     } catch (error) {
-      console.error(error);
+      console.error("[Attendance] Load error:", error);
+      Alert.alert(
+        "Error",
+        "Failed to load attendance data. Please try again.",
+        [
+          {
+            text: "Retry",
+            onPress: () => loadData(),
+          },
+          {
+            text: "Cancel",
+            style: "cancel",
+          },
+        ],
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -96,12 +167,12 @@ const Attendance = () => {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [user?.id, token]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     loadData();
-  }, []);
+  }, [user?.id, token]);
 
   if (loading) {
     return (
@@ -109,6 +180,7 @@ const Attendance = () => {
         <SafeAreaView style={styles.safeArea}>
           <View style={styles.center}>
             <ActivityIndicator size="large" color={COLORS.primary} />
+            <Text style={styles.loadingText}>Loading attendance...</Text>
           </View>
         </SafeAreaView>
       </SafeAreaProvider>
@@ -117,7 +189,8 @@ const Attendance = () => {
 
   const totalClasses = subjects.reduce((sum, s) => sum + s.total, 0);
   const totalPresent = subjects.reduce((sum, s) => sum + s.present, 0);
-  const overallPercentage = Math.round((totalPresent / totalClasses) * 100);
+  const overallPercentage =
+    totalClasses > 0 ? Math.round((totalPresent / totalClasses) * 100) : 0;
 
   return (
     <SafeAreaProvider>
@@ -153,170 +226,194 @@ const Attendance = () => {
           }
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.overallCard}>
-            <View style={styles.overallHeader}>
-              <View>
-                <Text style={styles.overallLabel}>Overall Attendance</Text>
-                <View style={styles.overallStatsRow}>
-                  <Text style={styles.overallPercentage}>
-                    {overallPercentage}%
-                  </Text>
-                  <View
-                    style={[
-                      styles.overallBadge,
-                      overallPercentage >= 75
-                        ? styles.badgeGood
-                        : styles.badgeWarning,
-                    ]}
-                  >
-                    <Text style={styles.badgeText}>
-                      {overallPercentage >= 75 ? "On Track" : "Below 75%"}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-              <View style={styles.overallIcon}>
-                <TrendingUp size={32} color={COLORS.primary} />
-              </View>
-            </View>
-
-            <View style={styles.overallProgressContainer}>
-              <View style={styles.overallProgressBg}>
-                <View
-                  style={[
-                    styles.overallProgressFill,
-                    {
-                      width: `${overallPercentage}%`,
-                      backgroundColor:
-                        overallPercentage >= 75
-                          ? COLORS.success
-                          : COLORS.danger,
-                    },
-                  ]}
-                />
-              </View>
-            </View>
-
-            <View style={styles.overallStatsGrid}>
-              <View style={styles.overallStatItem}>
-                <Text style={styles.overallStatValue}>{totalClasses}</Text>
-                <Text style={styles.overallStatLabel}>Total Classes</Text>
-              </View>
-              <View style={styles.overallStatDivider} />
-              <View style={styles.overallStatItem}>
-                <Text
-                  style={[styles.overallStatValue, { color: COLORS.success }]}
-                >
-                  {totalPresent}
-                </Text>
-                <Text style={styles.overallStatLabel}>Present</Text>
-              </View>
-              <View style={styles.overallStatDivider} />
-              <View style={styles.overallStatItem}>
-                <Text
-                  style={[styles.overallStatValue, { color: COLORS.danger }]}
-                >
-                  {totalClasses - totalPresent}
-                </Text>
-                <Text style={styles.overallStatLabel}>Absent</Text>
-              </View>
-            </View>
-          </View>
-
-          <Text style={styles.sectionTitle}>Subject-wise Breakdown</Text>
-
-          {subjects.map((subject) => {
-            const percentage = Math.round(
-              (subject.present / subject.total) * 100,
-            );
-            const isLow = percentage < 75;
-
-            return (
-              <View key={subject.id} style={styles.card}>
-                {/* Header Row */}
-                <View style={styles.cardHeader}>
-                  <View style={styles.titleGroup}>
-                    <View style={styles.iconBox}>
-                      <BookOpen size={22} color={COLORS.background} />
-                    </View>
-                    <View style={styles.titleContent}>
-                      <Text style={styles.subjectName}>{subject.name}</Text>
-                      <Text style={styles.subjectCode}>{subject.code}</Text>
+          {subjects.length > 0 ? (
+            <>
+              <View style={styles.overallCard}>
+                <View style={styles.overallHeader}>
+                  <View>
+                    <Text style={styles.overallLabel}>Overall Attendance</Text>
+                    <View style={styles.overallStatsRow}>
+                      <Text style={styles.overallPercentage}>
+                        {overallPercentage}%
+                      </Text>
+                      <View
+                        style={[
+                          styles.overallBadge,
+                          overallPercentage >= 75
+                            ? styles.badgeGood
+                            : styles.badgeWarning,
+                        ]}
+                      >
+                        <Text style={styles.badgeText}>
+                          {overallPercentage >= 75 ? "On Track" : "Below 75%"}
+                        </Text>
+                      </View>
                     </View>
                   </View>
-
-                  <View
-                    style={[
-                      styles.percentBadge,
-                      isLow ? styles.badgeDanger : styles.badgeSuccess,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.percentText,
-                        isLow ? styles.textDanger : styles.textSuccess,
-                      ]}
-                    >
-                      {percentage}%
-                    </Text>
+                  <View style={styles.overallIcon}>
+                    <TrendingUp size={32} color={COLORS.primary} />
                   </View>
                 </View>
 
-                <View style={styles.progressContainer}>
-                  <View style={styles.progressBg}>
+                <View style={styles.overallProgressContainer}>
+                  <View style={styles.overallProgressBg}>
                     <View
                       style={[
-                        styles.progressFill,
+                        styles.overallProgressFill,
                         {
-                          width: `${percentage}%`,
-                          backgroundColor: isLow
-                            ? COLORS.danger
-                            : COLORS.success,
+                          width: `${overallPercentage}%`,
+                          backgroundColor:
+                            overallPercentage >= 75
+                              ? COLORS.success
+                              : COLORS.danger,
                         },
                       ]}
                     />
                   </View>
-                  <Text style={styles.progressLabel}>
-                    {isLow ? "Below 75% Target" : "On Track"}
-                  </Text>
                 </View>
 
-                <View style={styles.statsContainer}>
-                  <View style={styles.statItem}>
-                    <Clock size={16} color={COLORS.textSecondary} />
-                    <Text style={styles.statValue}>{subject.total}</Text>
-                    <Text style={styles.statLabel}>Total</Text>
+                <View style={styles.overallStatsGrid}>
+                  <View style={styles.overallStatItem}>
+                    <Text style={styles.overallStatValue}>{totalClasses}</Text>
+                    <Text style={styles.overallStatLabel}>Total Classes</Text>
                   </View>
-
-                  <View style={styles.statDivider} />
-
-                  <View style={styles.statItem}>
-                    <CheckCircle2 size={16} color={COLORS.success} />
-                    <Text style={[styles.statValue, { color: COLORS.success }]}>
-                      {subject.present}
+                  <View style={styles.overallStatDivider} />
+                  <View style={styles.overallStatItem}>
+                    <Text
+                      style={[
+                        styles.overallStatValue,
+                        { color: COLORS.success },
+                      ]}
+                    >
+                      {totalPresent}
                     </Text>
-                    <Text style={styles.statLabel}>Present</Text>
+                    <Text style={styles.overallStatLabel}>Present</Text>
                   </View>
-
-                  <View style={styles.statDivider} />
-
-                  <View style={styles.statItem}>
-                    <XCircle size={16} color={COLORS.danger} />
-                    <Text style={[styles.statValue, { color: COLORS.danger }]}>
-                      {subject.absent}
+                  <View style={styles.overallStatDivider} />
+                  <View style={styles.overallStatItem}>
+                    <Text
+                      style={[
+                        styles.overallStatValue,
+                        { color: COLORS.danger },
+                      ]}
+                    >
+                      {totalClasses - totalPresent}
                     </Text>
-                    <Text style={styles.statLabel}>Absent</Text>
+                    <Text style={styles.overallStatLabel}>Absent</Text>
                   </View>
                 </View>
               </View>
-            );
-          })}
-          <View style={styles.footerContainer}>
-            <AlertCircle size={16} color={COLORS.textSecondary} />
-            <Text style={styles.footerText}>
-              Pull down to refresh attendance data
-            </Text>
-          </View>
+
+              <Text style={styles.sectionTitle}>Subject-wise Breakdown</Text>
+
+              {subjects.map((subject) => {
+                const percentage =
+                  subject.total > 0
+                    ? Math.round((subject.present / subject.total) * 100)
+                    : 0;
+                const isLow = percentage < 75;
+
+                return (
+                  <View key={subject.id} style={styles.card}>
+                    {/* Header Row */}
+                    <View style={styles.cardHeader}>
+                      <View style={styles.titleGroup}>
+                        <View style={styles.iconBox}>
+                          <BookOpen size={22} color={COLORS.background} />
+                        </View>
+                        <View style={styles.titleContent}>
+                          <Text style={styles.subjectName}>{subject.name}</Text>
+                          <Text style={styles.subjectCode}>{subject.code}</Text>
+                        </View>
+                      </View>
+
+                      <View
+                        style={[
+                          styles.percentBadge,
+                          isLow ? styles.badgeDanger : styles.badgeSuccess,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.percentText,
+                            isLow ? styles.textDanger : styles.textSuccess,
+                          ]}
+                        >
+                          {percentage}%
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.progressContainer}>
+                      <View style={styles.progressBg}>
+                        <View
+                          style={[
+                            styles.progressFill,
+                            {
+                              width: `${percentage}%`,
+                              backgroundColor: isLow
+                                ? COLORS.danger
+                                : COLORS.success,
+                            },
+                          ]}
+                        />
+                      </View>
+                      <Text style={styles.progressLabel}>
+                        {isLow ? "Below 75% Target" : "On Track"}
+                      </Text>
+                    </View>
+
+                    <View style={styles.statsContainer}>
+                      <View style={styles.statItem}>
+                        <Clock size={16} color={COLORS.textSecondary} />
+                        <Text style={styles.statValue}>{subject.total}</Text>
+                        <Text style={styles.statLabel}>Total</Text>
+                      </View>
+
+                      <View style={styles.statDivider} />
+
+                      <View style={styles.statItem}>
+                        <CheckCircle2 size={16} color={COLORS.success} />
+                        <Text
+                          style={[styles.statValue, { color: COLORS.success }]}
+                        >
+                          {subject.present}
+                        </Text>
+                        <Text style={styles.statLabel}>Present</Text>
+                      </View>
+
+                      <View style={styles.statDivider} />
+
+                      <View style={styles.statItem}>
+                        <XCircle size={16} color={COLORS.danger} />
+                        <Text
+                          style={[styles.statValue, { color: COLORS.danger }]}
+                        >
+                          {subject.absent}
+                        </Text>
+                        <Text style={styles.statLabel}>Absent</Text>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })}
+
+              <View style={styles.footerContainer}>
+                <AlertCircle size={16} color={COLORS.textSecondary} />
+                <Text style={styles.footerText}>
+                  Pull down to refresh attendance data
+                </Text>
+              </View>
+            </>
+          ) : (
+            <View style={styles.emptyState}>
+              <BookOpen size={64} color={COLORS.border} />
+              <Text style={styles.emptyTitle}>No Attendance Data</Text>
+              <Text style={styles.emptyText}>
+                No attendance records found. Pull down to refresh.
+              </Text>
+            </View>
+          )}
         </ScrollView>
       </SafeAreaView>
     </SafeAreaProvider>
@@ -334,6 +431,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    fontWeight: "500",
   },
 
   headerContainer: {
@@ -624,6 +727,26 @@ const styles = StyleSheet.create({
     width: 1,
     height: 40,
     backgroundColor: COLORS.border,
+  },
+
+  emptyState: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 80,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: COLORS.text,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    textAlign: "center",
+    paddingHorizontal: 40,
   },
 
   footerContainer: {
