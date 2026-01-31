@@ -1,8 +1,7 @@
 import { useAuth } from "@/context/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -31,41 +30,17 @@ const COLORS = {
 const UserPage = () => {
   // Get data from AuthContext
   const { user, classes, isLoading, token, role } = useAuth();
+  console.log("User object:", user);
+  console.log("Classes from context:", classes);
+  console.log("User role:", role);
 
   const [selectedClass, setSelectedClass] = useState(null);
   const [attendanceImages, setAttendanceImages] = useState([null, null, null]);
   const [modalVisible, setModalVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [classesData, setClassesData] = useState([]);
 
-  // Load classes data when screen comes into focus
-  useFocusEffect(
-    useCallback(() => {
-      loadClassesData();
-    }, [classes]),
-  );
-
-  const loadClassesData = () => {
-    try {
-      console.log("[DEBUG] Loading classes from AuthContext...");
-      console.log("Classes available:", classes);
-      console.log("User role:", role);
-
-      if (classes && Array.isArray(classes) && classes.length > 0) {
-        setClassesData(classes);
-        console.log(`✅ Loaded ${classes.length} classes`);
-        console.log(
-          "First class structure:",
-          JSON.stringify(classes[0], null, 2),
-        );
-      } else {
-        console.log("❌ No classes data available or not an array");
-        setClassesData([]);
-      }
-    } catch (error) {
-      console.error("❌ Error loading classes:", error);
-    }
-  };
+  // Use classes directly from context
+  const classesData = classes || [];
 
   if (isLoading) {
     return (
@@ -132,25 +107,18 @@ const UserPage = () => {
       return;
     }
 
-    if (!classesData || classesData.length === 0) {
-      Alert.alert("Error", "No classes data available");
-      return;
-    }
-
     setSubmitting(true);
 
     try {
-      const sessionId = classesData[0]?.sessionId;
+      const sessionId = selectedClass?.sessionId;
 
       if (!sessionId) {
-        throw new Error("SessionId not found in classes data");
+        throw new Error("SessionId not found in selected class");
       }
 
       console.log("[DEBUG] Building FormData...");
 
       const formData = new FormData();
-
-      // Append all fields as strings
       formData.append("role", role || "TEACHER");
       formData.append("sessionId", String(sessionId));
       formData.append("classCode", String(selectedClass.code));
@@ -234,6 +202,14 @@ const UserPage = () => {
     }
   };
 
+  // Helper function to get display time for teacher classes
+  const getClassTime = (classItem) => {
+    if (classItem.time) return classItem.time;
+    if (classItem.startTime) return classItem.startTime;
+    if (classItem.timeString) return classItem.timeString;
+    return "Time not available";
+  };
+
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
@@ -253,7 +229,7 @@ const UserPage = () => {
           <View style={styles.avatarContainer}>
             <Image
               source={{
-                uri: `https://i.pravatar.cc/150?u=${user?.email}`,
+                uri: `https://th.bing.com/th/id/R.c3631c652abe1185b1874da24af0b7c7?rik=gNdBCSMtHLUrQQ&pid=ImgRaw&r=0`,
               }}
               style={styles.avatar}
             />
@@ -270,9 +246,9 @@ const UserPage = () => {
               </Text>
 
               {classesData && classesData.length > 0 ? (
-                classesData.map((item) => (
+                classesData.map((item, index) => (
                   <TouchableOpacity
-                    key={item.id}
+                    key={item.sessionId || item.id || index}
                     style={[
                       styles.teacherCard,
                       item.status === "Live" && styles.liveCardBorder,
@@ -300,11 +276,12 @@ const UserPage = () => {
                     </View>
                     <View style={styles.cardMeta}>
                       <Text style={styles.metaText}>
-                        <Ionicons name="time-outline" size={14} /> {item.time}
+                        <Ionicons name="time-outline" size={14} />{" "}
+                        {getClassTime(item)}
                       </Text>
                       <Text style={styles.metaText}>
                         <Ionicons name="location-outline" size={14} />{" "}
-                        {item.location}
+                        {item.location || "Location not set"}
                       </Text>
                     </View>
                   </TouchableOpacity>
@@ -324,10 +301,18 @@ const UserPage = () => {
             <View>
               <Text style={styles.sectionTitle}>Upcoming Classes</Text>
               {classesData && classesData.length > 0 ? (
-                classesData.map((item) => (
-                  <View key={item.id} style={styles.studentCard}>
-                    <Text style={styles.studentSubject}>{item.subject}</Text>
+                classesData.map((item, index) => (
+                  <View key={item.id || index} style={styles.studentCard}>
+                    <Text style={styles.studentSubject}>
+                      {item.subject || item.name}
+                    </Text>
                     <Text style={styles.studentDetail}>{item.code}</Text>
+                    <Text style={styles.studentDetail}>
+                      {item.professor} • {item.room || item.location}
+                    </Text>
+                    <Text style={styles.studentDetail}>
+                      {item.timeString || item.time || "Time TBD"}
+                    </Text>
                   </View>
                 ))
               ) : (
@@ -346,10 +331,15 @@ const UserPage = () => {
               <View style={styles.modalHeader}>
                 <View>
                   <Text style={styles.modalTitle}>Mark Attendance</Text>
-                  {classesData.length > 0 && (
-                    <Text style={styles.sessionInfo}>
-                      SessionId: {classesData[0]?.sessionId}
-                    </Text>
+                  {selectedClass && (
+                    <View>
+                      <Text style={styles.sessionInfo}>
+                        Session ID: {selectedClass.sessionId}
+                      </Text>
+                      <Text style={styles.sessionInfo}>
+                        {selectedClass.code} - {selectedClass.name}
+                      </Text>
+                    </View>
                   )}
                 </View>
                 <TouchableOpacity

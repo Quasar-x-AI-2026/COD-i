@@ -31,6 +31,8 @@ const COLORS = {
 
 const StudentSchedule = ({ navigation }) => {
   const { user, classes } = useAuth();
+  console.log("Classes from context:", classes);
+  console.log("User object:", user);
   const CLASSES = classes && Array.isArray(classes) ? classes : [];
 
   const [syncedClasses, setSyncedClasses] = useState([]);
