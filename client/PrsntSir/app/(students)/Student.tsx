@@ -29,34 +29,106 @@ const COLORS = {
   danger: "#FF4D4D",
 };
 
-const StudentSchedule = ({ navigation }) => {
-  const { user, classes } = useAuth();
-  console.log("Classes from context:", classes);
-  console.log("User object:", user);
-  const CLASSES = classes && Array.isArray(classes) ? classes : [];
+const API_BASE_URL = "http://192.168.9.130:3000";
 
+const StudentSchedule = ({ navigation }) => {
+  const { user, classes, token } = useAuth();
+  console.log("[StudentSchedule] Classes from context:", classes);
+  console.log("[StudentSchedule] User object:", user);
+
+  const [CLASSES, setClasses] = useState([]);
   const [syncedClasses, setSyncedClasses] = useState([]);
   const [calendarId, setCalendarId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Fetch classes from API
+  // const fetchClasses = async () => {
+  //   try {
+  //     if (!user?.id) {
+  //       console.error("[StudentSchedule] No user ID found");
+  //       return;
+  //     }
+
+  //     if (!token) {
+  //       console.error("[StudentSchedule] No auth token found");
+  //       return;
+  //     }
+
+  //     console.log(
+  //       `[StudentSchedule] Fetching classes for student ID: ${user.id}`,
+  //     );
+
+  //     const response = await fetch(
+  //       `${API_BASE_URL}/student/${user.id}/classes`,
+  //       {
+  //         method: "GET",
+  //         headers: {
+  //           Authorization: `Bearer ${token}`,
+  //           "Content-Type": "application/json",
+  //         },
+  //       },
+  //     );
+
+  //     console.log(`[API] Response status: ${response.status}`);
+
+  //     if (!response.ok) {
+  //       const errorText = await response.text();
+  //       console.error(`[API] Error response: ${errorText}`);
+  //       throw new Error(`Failed to fetch classes: ${response.status}`);
+  //     }
+
+  //     const data = await response.json();
+  //     console.log(
+  //       `[API] Received classes data:`,
+  //       JSON.stringify(data, null, 2),
+  //     );
+  //     let transformedClasses = [];
+
+  //     if (Array.isArray(data)) {
+  //       transformedClasses = data;
+  //     } else if (data.classes && Array.isArray(data.classes)) {
+  //       transformedClasses = data.classes;
+  //     } else if (data.schedule && Array.isArray(data.schedule)) {
+  //       transformedClasses = data.schedule;
+  //     }
+
+  //     console.log(
+  //       `[StudentSchedule] Loaded ${transformedClasses.length} classes`,
+  //     );
+  //     setClasses(transformedClasses);
+  //   } catch (error) {
+  //     console.error("[StudentSchedule] Fetch error:", error);
+  //     // Fall back to context classes if API fails
+  //     if (classes && Array.isArray(classes)) {
+  //       console.log("[StudentSchedule] Using classes from context as fallback");
+  //       setClasses(classes);
+  //     }
+  //   }
+  // };
+
   useEffect(() => {
     console.log("[DEBUG] StudentSchedule mounted");
-    console.log("User object:", user);
-    console.log("Classes from context:", classes);
-    console.log("Classes array:", CLASSES);
-    console.log("Classes count:", CLASSES.length);
+
+    // Use classes from context first
+    if (classes && Array.isArray(classes) && classes.length > 0) {
+      console.log(
+        "[StudentSchedule] Using classes from context:",
+        classes.length,
+      );
+      setClasses(classes);
+    }
+
     if (!user || !user.id) {
-      console.warn(" User not loaded yet");
+      console.warn("❌ User not loaded yet");
       setError("User data not loaded. Please login again.");
       setLoading(false);
       return;
     }
 
-    if (CLASSES.length === 0) {
-      console.warn(" No classes found for this user");
-      setLoading(false);
-      return;
-    }
+    // Fetch fresh data from API
+    // fetchClasses();
     initializePermissions();
   }, [user, classes]);
 
@@ -70,19 +142,19 @@ const StudentSchedule = ({ navigation }) => {
       const { status } = await Calendar.requestCalendarPermissionsAsync();
 
       if (status !== "granted") {
-        console.warn(" Calendar permission denied");
+        console.warn("❌ Calendar permission denied");
         setError("Calendar permission is required to sync classes.");
         setLoading(false);
         return;
       }
 
-      console.log(" Calendar permission granted");
+      console.log("✅ Calendar permission granted");
 
       setTimeout(() => {
         initializeCalendar();
       }, 500);
     } catch (error) {
-      console.error(" Permission error:", error);
+      console.error("❌ Permission error:", error);
       setError("Failed to request calendar permissions.");
       setLoading(false);
     }
@@ -127,7 +199,7 @@ const StudentSchedule = ({ navigation }) => {
 
         if (existingCalendar) {
           id = existingCalendar.id;
-          console.log(" Using existing calendar:", id);
+          console.log("✅ Using existing calendar:", id);
         } else {
           const googleCalendar = writableCalendars.find(
             (cal) => cal.source.type === "com.google",
@@ -135,7 +207,7 @@ const StudentSchedule = ({ navigation }) => {
 
           if (googleCalendar) {
             id = googleCalendar.id;
-            console.log(" Using Google Calendar:", id, googleCalendar.title);
+            console.log("✅ Using Google Calendar:", id, googleCalendar.title);
           } else {
             id = await Calendar.createCalendarAsync({
               title: "Class Schedule",
@@ -145,7 +217,7 @@ const StudentSchedule = ({ navigation }) => {
               sourceId: sourceId,
               isVisible: true,
             });
-            console.log(" Created new calendar:", id);
+            console.log("✅ Created new calendar:", id);
           }
         }
       } else {
@@ -168,44 +240,101 @@ const StudentSchedule = ({ navigation }) => {
       }
 
       setCalendarId(id);
-      console.log(" Calendar initialized successfully:", id);
+      console.log("✅ Calendar initialized successfully:", id);
       setLoading(false);
     } catch (error) {
-      console.error(" Calendar initialization error:", error);
+      console.error("❌ Calendar initialization error:", error);
       setError(`Calendar error: ${error.message}`);
       setLoading(false);
     }
   };
 
+  /**
+   * Parse time string and create a Date object for today
+   * Handles formats: "04:39 am", "14:30", "2:30 PM"
+   */
   const getDateForTime = (timeString) => {
     try {
       const date = new Date();
 
       if (!timeString || typeof timeString !== "string") {
-        console.warn(" Invalid timeString:", timeString);
+        console.warn("⚠️ Invalid timeString:", timeString);
         return date;
       }
 
-      const [time, modifier] = timeString.split(" ");
+      // Clean the time string
+      const cleanTime = timeString.trim();
 
-      if (!time) {
-        console.warn(" Time part missing:", timeString);
-        return date;
+      // Check if it contains AM/PM
+      const hasAMPM = /am|pm/i.test(cleanTime);
+
+      if (hasAMPM) {
+        // Format: "04:39 am" or "2:30 PM"
+        const [time, modifier] = cleanTime.split(/\s+/);
+
+        if (!time) {
+          console.warn("⚠️ Time part missing:", cleanTime);
+          return date;
+        }
+
+        let [hours, minutes] = time.split(":");
+
+        hours = parseInt(hours || "0", 10);
+        minutes = parseInt(minutes || "0", 10);
+
+        // Convert to 24-hour format
+        if (modifier.toLowerCase() === "pm" && hours !== 12) {
+          hours = hours + 12;
+        } else if (modifier.toLowerCase() === "am" && hours === 12) {
+          hours = 0;
+        }
+
+        date.setHours(hours, minutes, 0, 0);
+      } else {
+        // Format: "14:30" (24-hour format)
+        const [hours, minutes] = cleanTime.split(":");
+
+        date.setHours(
+          parseInt(hours || "0", 10),
+          parseInt(minutes || "0", 10),
+          0,
+          0,
+        );
       }
 
-      let [hours, minutes] = time.split(":");
-
-      hours = parseInt(hours || "0", 10);
-      minutes = parseInt(minutes || "0", 10);
-
-      if (hours === 12) hours = 0;
-      if (modifier === "PM") hours = hours + 12;
-
-      date.setHours(hours, minutes, 0, 0);
+      console.log(
+        `✅ Parsed time "${timeString}" to:`,
+        date.toLocaleTimeString(),
+      );
       return date;
     } catch (error) {
-      console.error(" Error parsing time:", timeString, error);
+      console.error("❌ Error parsing time:", timeString, error);
       return new Date();
+    }
+  };
+
+  /**
+   * Format time for display (e.g., "04:39" and "am")
+   */
+  const formatTimeDisplay = (timeString) => {
+    if (!timeString) return { time: "N/A", meridiem: "" };
+
+    const cleanTime = timeString.trim();
+    const hasAMPM = /am|pm/i.test(cleanTime);
+
+    if (hasAMPM) {
+      const [time, modifier] = cleanTime.split(/\s+/);
+      return { time: time || "N/A", meridiem: modifier?.toUpperCase() || "" };
+    } else {
+      // Convert 24-hour to 12-hour format for display
+      const [hours, minutes] = cleanTime.split(":");
+      const hour = parseInt(hours || "0", 10);
+      const isPM = hour >= 12;
+      const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+      return {
+        time: `${displayHour}:${minutes || "00"}`,
+        meridiem: isPM ? "PM" : "AM",
+      };
     }
   };
 
@@ -234,8 +363,10 @@ const StudentSchedule = ({ navigation }) => {
       const startDate = getDateForTime(classItem.timeString);
       const durationMinutes = classItem.durationMinutes || 60;
       const endDate = new Date(startDate.getTime() + durationMinutes * 60000);
-      console.log("Start:", startDate);
-      console.log("End:", endDate);
+
+      console.log("📅 Start:", startDate.toLocaleString());
+      console.log("📅 End:", endDate.toLocaleString());
+
       const eventId = await Calendar.createEventAsync(calendarId, {
         title: `${classItem.code}: ${classItem.subject}`,
         startDate,
@@ -245,7 +376,7 @@ const StudentSchedule = ({ navigation }) => {
         alarms: [{ relativeOffset: -15 }, { relativeOffset: -5 }],
       });
 
-      console.log(" Event created:", eventId);
+      console.log("✅ Event created:", eventId);
 
       setSyncedClasses([...syncedClasses, classItem.id]);
       Alert.alert(
@@ -253,7 +384,7 @@ const StudentSchedule = ({ navigation }) => {
         `${classItem.code} added to calendar with reminders!`,
       );
     } catch (error) {
-      console.error(" Sync error:", error);
+      console.error("❌ Sync error:", error);
       Alert.alert("Error", `Failed to sync: ${error.message}`);
     }
   };
@@ -271,6 +402,12 @@ const StudentSchedule = ({ navigation }) => {
     }
   };
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchClasses();
+    setRefreshing(false);
+  };
+
   if (loading) {
     return (
       <SafeAreaProvider>
@@ -283,6 +420,7 @@ const StudentSchedule = ({ navigation }) => {
       </SafeAreaProvider>
     );
   }
+
   if (error) {
     return (
       <SafeAreaProvider>
@@ -338,6 +476,9 @@ const StudentSchedule = ({ navigation }) => {
             <Text style={styles.emptyMessage}>
               You don't have any classes assigned yet
             </Text>
+            <TouchableOpacity style={styles.retryBtn} onPress={handleRefresh}>
+              <Text style={styles.retryBtnText}>Refresh</Text>
+            </TouchableOpacity>
           </View>
         </SafeAreaView>
       </SafeAreaProvider>
@@ -378,16 +519,13 @@ const StudentSchedule = ({ navigation }) => {
             }
 
             const isSynced = syncedClasses.includes(item.id);
+            const { time, meridiem } = formatTimeDisplay(item.timeString);
 
             return (
               <View key={item.id} style={styles.classCard}>
                 <View style={styles.timeContainer}>
-                  <Text style={styles.timeText}>
-                    {item.timeString?.split(" ")[0] || "N/A"}
-                  </Text>
-                  <Text style={styles.meridiem}>
-                    {item.timeString?.split(" ")[1] || ""}
-                  </Text>
+                  <Text style={styles.timeText}>{time}</Text>
+                  <Text style={styles.meridiem}>{meridiem}</Text>
                   <View style={styles.timelineLine} />
                 </View>
 
@@ -412,12 +550,12 @@ const StudentSchedule = ({ navigation }) => {
                   </View>
 
                   <Text style={styles.subjectText}>
-                    {item.subject || "Unknown Subject"}
+                    {item.subject || item.name || "Unknown Subject"}
                   </Text>
 
                   <Text style={styles.detailText}>
                     <Ionicons name="location-outline" size={14} />
-                    {" " + (item.room || "N/A")}
+                    {" " + (item.room || item.location || "N/A")}
                   </Text>
 
                   <Text style={styles.detailText}>

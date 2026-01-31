@@ -71,31 +71,33 @@ const fetchSubjectData = async (studentId, token) => {
     const data = await response.json();
     console.log(`[API] Received data:`, JSON.stringify(data, null, 2));
 
-    if (Array.isArray(data)) {
+    // Transform API response to match expected format
+    // API returns: { student: {...}, subjects: [...], overallAttendance: number }
+    if (data.subjects && Array.isArray(data.subjects)) {
+      console.log(`[API] Transforming ${data.subjects.length} subjects`);
+      return data.subjects.map((item) => {
+        const total = item.totalClasses || 0;
+        const present = item.attendedClasses || 0;
+        const absent = total - present;
+
+        return {
+          id: item.subjectId,
+          name: item.name,
+          code: item.code,
+          total: total,
+          present: present,
+          absent: absent,
+          percentage: item.attendancePercentage || 0,
+        };
+      });
+    } else if (Array.isArray(data)) {
+      // Fallback for direct array response
       return data.map((item) => ({
         id: item.id || item.subjectId,
         name: item.name || item.subjectName || item.subject,
         code: item.code || item.subjectCode,
         total: item.total || item.totalClasses || 0,
-        present: item.present || item.presentCount || 0,
-        absent: item.absent || item.absentCount || 0,
-      }));
-    } else if (data.subjects && Array.isArray(data.subjects)) {
-      return data.subjects.map((item) => ({
-        id: item.id || item.subjectId,
-        name: item.name || item.subjectName || item.subject,
-        code: item.code || item.subjectCode,
-        total: item.total || item.totalClasses || 0,
-        present: item.present || item.presentCount || 0,
-        absent: item.absent || item.absentCount || 0,
-      }));
-    } else if (data.attendance && Array.isArray(data.attendance)) {
-      return data.attendance.map((item) => ({
-        id: item.id || item.subjectId,
-        name: item.name || item.subjectName || item.subject,
-        code: item.code || item.subjectCode,
-        total: item.total || item.totalClasses || 0,
-        present: item.present || item.presentCount || 0,
+        present: item.present || item.presentCount || item.attendedClasses || 0,
         absent: item.absent || item.absentCount || 0,
       }));
     } else {
@@ -114,6 +116,10 @@ const Attendance = () => {
   const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [studentInfo, setStudentInfo] = useState(null);
+  const [overallAttendanceFromAPI, setOverallAttendanceFromAPI] =
+    useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   const loadData = async () => {
     try {
@@ -140,9 +146,41 @@ const Attendance = () => {
       }
 
       console.log(`[Attendance] Loading data for user ID: ${user.id}`);
-      const data = await fetchSubjectData(user.id, token);
-      console.log(`[Attendance] Loaded ${data.length} subjects`);
-      setSubjects(data);
+
+      // Fetch the raw response to get both subjects and overall attendance
+      const response = await fetch(
+        `${API_BASE_URL}/student/${user.id}/attendance`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[API] Error response: ${errorText}`);
+        throw new Error(`Failed to fetch attendance: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log(`[API] Received data:`, JSON.stringify(data, null, 2));
+
+      // Store student info and overall attendance
+      if (data.student) {
+        setStudentInfo(data.student);
+      }
+      if (data.overallAttendance !== undefined) {
+        setOverallAttendanceFromAPI(data.overallAttendance);
+      }
+
+      // Transform subjects data
+      const transformedSubjects = await fetchSubjectData(user.id, token);
+      console.log(`[Attendance] Loaded ${transformedSubjects.length} subjects`);
+      setSubjects(transformedSubjects);
+      setLastUpdated(new Date());
     } catch (error) {
       console.error("[Attendance] Load error:", error);
       Alert.alert(
@@ -202,7 +240,20 @@ const Attendance = () => {
         <View style={styles.headerContainer}>
           <View style={styles.headerContent}>
             <Text style={styles.headerTitle}>My Attendance</Text>
-            <Text style={styles.headerSub}>Track your attendance records</Text>
+            <Text style={styles.headerSub}>
+              {studentInfo
+                ? `${studentInfo.name} • ${studentInfo.rollNumber}`
+                : "Track your attendance records"}
+            </Text>
+            {lastUpdated && (
+              <Text style={styles.lastUpdated}>
+                Last updated:{" "}
+                {lastUpdated.toLocaleTimeString("en-US", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </Text>
+            )}
           </View>
 
           <TouchableOpacity
@@ -458,6 +509,12 @@ const styles = StyleSheet.create({
   headerSub: {
     fontSize: 14,
     color: COLORS.textSecondary,
+  },
+  lastUpdated: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    marginTop: 4,
+    fontStyle: "italic",
   },
   backButton: {
     width: 44,
